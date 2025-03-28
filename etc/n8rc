@@ -18,10 +18,10 @@
   HideExt       = .o.bak  #   ファイラーやタブ補完から除外する拡張子 間にスペースは入れない事
 
 # キーコンフィグ
-#   /usr/local/share/ne/ などのディレクトリのしたに、
+#   /usr/local/share/n8/ などのディレクトリのしたに、
 #   key.vz などの定義ファイルの本体があります。
 #   キーアサイン等をいじる場合は、それを適当に
-#   ~/.ne/ のしたにコピーしてからいじってみてください。
+#   ~/.n8/ のしたにコピーしてからいじってみてください。
 
 !I	key.vz            #editor keybind
 !I	key.system        #system keybind
