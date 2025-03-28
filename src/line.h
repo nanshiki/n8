@@ -1,0 +1,10 @@
+void se_insert(const char *s, bool f);
+void se_delete(int n, bool f);
+void undo_paste();
+void undo_add(bool df, const char *s);
+void udbuf_set(bool df, const char *s);
+void udbuf_get(char *s);
+void udbuf_init();
+void lm_mark(int ln, int n);
+int lm_line(int n);
+int CatLine();

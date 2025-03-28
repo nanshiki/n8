@@ -1,0 +1,50 @@
+#
+# Makefile for  ele's library
+#
+
+TARGET = libele.a
+CC = @CC@
+# CFLAGS= @CFLAGS@
+DEFS = @DEFS@
+LIBS = @LIBS@
+SED = sed
+AR = ar
+ARFLAGS = cr
+
+SRCS = misc.c generic.c hash.c regexp.c term.c term_inkey.c
+OBJS = $(SRCS:.c=.o)
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	@rm -f $(TARGET)
+	$(AR) $(ARFLAGS) $@ $(OBJS)
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+#
+#
+#
+
+install: $(TARGET)
+
+clean:
+	rm -f $(OBJS) $(TARGET)
+
+distclean:
+	rm -f $(OBJS) $(TARGET) \
+		Makefile config.h config.cache config.log config.status
+
+misc.o: config.h
+misc.o: generic.h
+generic.o: config.h
+generic.o: generic.h
+hash.o: config.h
+hash.o: generic.h hash.h
+regexp.o: config.h
+regexp.o: generic.h regexp.h
+term.o: config.h
+term.o: generic.h term.h
+term_inkey.o: config.h
+term_inkey.o: generic.h term.h

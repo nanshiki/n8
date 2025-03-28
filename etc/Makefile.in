@@ -1,0 +1,28 @@
+#
+#	Makefile for n8
+#
+
+PROG = n8
+prefix = @prefix@
+SYSCONFDIR= @sysconfdir@/n8
+top_srcdir = @top_srcdir@
+mkinstalldirs = /bin/sh $(top_srcdir)/mkinstalldirs
+INSTALL= @INSTALL@
+INSTALL_DATA= @INSTALL_DATA@
+
+INSS=   n8rc n8rc.ele n8rc.tk \
+        key.vz key.ele key.tk key.eff key.system \
+        term term.rxvt term.kterm
+
+all:
+
+clean:
+
+distclean:
+	rm -f Makefile
+
+install:
+	@$(mkinstalldirs) $(SYSCONFDIR)
+	@set -e; for i in $(INSS); \
+	do (echo "install $$i" ;  $(INSTALL_DATA) $$i $(SYSCONFDIR)/$$i); done
+

@@ -1,0 +1,97 @@
+#
+#	Makefile for n8
+#
+
+PROG = n8
+SED = sed
+
+PREFIX=@prefix@
+
+OPTS = -DSYSCONFDIR=\"@sysconfdir@/n8\" -DPROG=${PROG}
+mkinstalldirs = /bin/sh $(top_srcdir)/mkinstalldirs
+
+CC = @CC@
+DEFS = @DEFS@
+LIBS = -lele @LIBS@
+# CFLAGS= @CFLAGS@
+
+prefix = @prefix@
+top_srcdir = @top_srcdir@
+INSTALL = @INSTALL@
+INSTALL_DATA = @INSTALL_DATA@
+#INSTALL_PROGRAM = @INSTALL_PROGRAM@ -s
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+bindir = $(prefix)/@bindir@
+
+
+SRCS = block.c crt.c cursor.c disp.c file.c filer.c \
+	input.c iskanji.c keyf.c line.c \
+	lineedit.c list.c menu.c \
+	search.c setopt.c keys.c sh_shells.c \
+	$(PROG).c
+OBJS = $(SRCS:.c=.o)
+
+all: $(PROG)
+
+$(PROG): $(OBJS) ../lib/libele.a
+	$(CC) -L../lib -o $@ $(OBJS) $(LIBS)
+
+.c.o:
+	@echo $(CC) $(CFLAGS) -c $<
+	@$(CC) $(CFLAGS) $(OPTS) -c $<
+
+clean:
+	rm -f $(OBJS) $(PROG)
+
+distclean:
+	rm -f $(OBJS) $(PROG) \
+	      Makefile config.h
+
+install: $(PROG)
+	@$(mkinstalldirs) $(bindir)
+	$(INSTALL_PROGRAM) $(PROG) $(bindir)/$(PROG)
+
+block.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+block.o: block.h list.h line.h cursor.h keyf.h file.h
+block.o: sh.h sh_defs.h function.h 
+crt.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+crt.o: crt.h line.h list.h disp.h block.h cursor.h lineedit.h
+cursor.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+cursor.o: keyf.h cursor.h list.h crt.h block.h search.h file.h line.h lineedit.h
+cursor.o: sh.h sh_defs.h function.h
+disp.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+disp.o: crt.h
+file.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+file.o: file.h menu.h filer.h crt.h list.h keyf.h cursor.h block.h input.h ../lib/misc.h
+file.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+filer.o: menu.h
+input.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+input.o: input.h crt.h cursor.h line.h lineedit.h
+iskanji.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+iskanji.o: cursor.h
+keyf.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+keyf.o: keyf.h crt.h cursor.h
+keyf.o: sh.h sh_defs.h function.h
+line.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+line.o: line.h crt.h keyf.h list.h file.h input.h cursor.h block.h
+line.o: sh.h sh_defs.h function.h
+lineedit.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+lineedit.o: lineedit.h crt.h list.h keyf.h filer.h setopt.h
+lineedit.o: sh.h sh_defs.h function.h
+list.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+list.o: list.h cursor.h
+menu.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+menu.o: menu.h crt.h keyf.h
+menu.o: sh.h sh_defs.h function.h
+search.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+search.o: search.h line.h list.h crt.h cursor.h input.h menu.h keyf.h ../lib/regexp.h
+setopt.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+setopt.o: setopt.h crt.h file.h menu.h keyf.h keys.h ../lib/term_inkey.h
+setopt.o: sh.h sh_defs.h function.h
+keys.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+keys.o: keys.h ../lib/misc.h
+keys.o: sh.h sh_defs.h function.h
+sh_shells.o: sh.h sh_defs.h function.h
+n8.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
+n8.o: crt.h list.h line.h block.h search.h filer.h cursor.h input.h file.h keyf.h list.h setopt.h
+n8.o: sh.h sh_defs.h function.h

@@ -1,0 +1,29 @@
+# システム用キーアサイン(Menu/文字列入力など)
+#   左にキー、:の右に実行する命令を書きます。
+#   キーは複数をまとめて指定する事もできます。
+!R	Key:sys
+
+  [ESC]             : Escape                #終了
+  [CR]              : Return                #選択、入力確定する
+
+  ^E [UP]           : Cursorup              #カーソルを上に、ヒストリー呼び出し
+  ^X [DOWN]         : Cursordown            #カーソルを下に、ヒストリー呼び出し
+  ^S [LEFT]         : Cursorleft            #カーソルを左に
+  ^D [RIGHT]        : Cursorright           #カーソルを右に
+
+  ^H [BS]           : Backspace             #一つ前の文字削除
+  ^G [DEL]          : Deletechar            #その場の文字削除
+  ^P                : Cntrlinput            #コントロール文字を入力
+
+  ^R \[UP]          : Scrolldown            #カーソルを1ページ上に
+  ^C \[DOWN]        : Scrollup              #カーソルを1ページ下に
+
+  ^W ^[UP]          : Rollup                #?
+  ^Z ^[DOWN]        : Rolldown              #?
+
+  ^QE               : Cursorupside          #カーソルを画面最上部に
+  ^QX               : Cursordownside        #カーソルを画面最下部に
+  ^QS \[LEFT]       : Cursorleftside        #カーソルを左端に
+  ^QD \[RIGHT]      : Cursorrightside       #カーソルを右端に
+  ^QR               : Cursortopside         #カーソルを上端に
+  ^QC               : Cursorendside         #カーソルを下端に

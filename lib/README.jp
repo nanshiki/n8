@@ -1,0 +1,71 @@
+-- library ---------------------------------------------------------
+解説    : "える" ライブラリ
+著作者  : 佐々木 "えるちゃん" 俊介 <ele@pop17.odn.ne.jp>
+扱い    : GPL プログラムともリンク可能な BSD copyright
+確認OS  : FreeBSD 3.2R、LINUX(Vine 1.1)
+--------------------------------------------------------------------
+
+§ 概要
+
+  まだほとんど形になっていませんがライブラリです。
+
+
+○ ライセンスについて
+
+  このライブラリには GPL 以外のプログラムとの親和性の高い
+  ライセンスを採用したいので GPL ではありません。
+  GPL プログラムとリンクが可能な BSD copyright です。
+
+  ちなみに BSD copyright については参考の為に、
+  訳文を ./BSD-copyright.jp としておいておきます。
+
+  正式なライセンスは、以下に英語で書いてある通りし、
+  各ソースファイルの先頭に書いておきます。
+
+
+注意:
+  tparm.c だけは public domain のコードをそのまま使用しています。
+
+
+/*
+ * Copyright (c) 1999, 2000 SASAKI Shunsuke.
+ * All rights reserved. 
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification, immediately at the beginning of the file.
+ * 2. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * Where this Software is combined with software released under the terms of 
+ * the GNU Public License ("GPL") and the terms of the GPL would require the 
+ * combined work to also be released under the terms of the GPL, the terms
+ * and conditions of this License will apply in addition to those of the
+ * GPL with the exception of any terms or conditions of this License that
+ * conflict with, or are expressly prohibited by, the GPL.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+§ 予定
+
+  o strsep, tparm など OS/環境によって無い関数の補完を押し進める予定です。
+    古い環境に対して新しい環境での移植性を高めようという考え方です。
+
+    o AC_REPLACE_FUNC
+
+  o Ruby
+

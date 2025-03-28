@@ -1,0 +1,17 @@
+int GetCol();
+int GetScroll();
+int GetBufferOffset();
+int GetRow();
+long GetLineOffset();
+void csr_fix();
+void csr_lenew();
+void csr_leupdate();
+void csr_movehook();
+void OffsetSetByColumn();
+void csr_setlx(int lx);
+void LineOffsetSet(long n);
+void CursorSetRow(int n);
+long csr_getsy();
+void csr_setly(long n);
+void csr_setdy(int dy);
+void CursorMove();

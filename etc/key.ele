@@ -1,0 +1,105 @@
+# エディタキーアサイン (ne 作者のキーアサイン)
+#   左にキー、:の右に実行する命令を書きます。
+#   キーは複数をまとめて指定する事もできます。
+!R	Key
+
+  ^\ [F02]          : file_toggle           #62 カレントファイルの交換
+  [F03]             : file_select           #63 カレントファイルの変更
+
+  [ESC]F            : file_open             #70 ファイルのオープン
+  [ESC]C            : file_close            #73 カレントファイルの編集終了
+  [ESC]L            : file_copen            #74 close and open
+  [ESC]S            : file_save             #75 カレントファイルのセーブ
+#  [ESC]Q            : file_quit             #77 ファイルを破棄して終了
+  [ESC]E            : misc_exec             #78 シェルコマンドの実行
+
+  [ESC]R            : file_rename           #82 ファイル名の変更
+
+  [ESC]U            : file_undo             #M7 カレントの編集のやり直し
+  [ESC]I            : file_insert           #M8 ファイルを挿入
+  [ESC]X            : file_aclose           #M9 全ファイルのクローズ
+
+
+  ^E [UP]           : cursor_up             #05 カーソルを上へ
+  ^X [DOWN]         : cursor_down           #06 カーソルを下へ
+  ^S [LEFT]         : cursor_left           #07 カーソルを左へ
+  ^D [RIGHT]        : cursor_right          #08 カーソルを右へ
+  ^A ^[LEFT]        : cursor_tkprev         #09 前のトークンへ
+  ^F ^[RIGHT]       : cursor_tknext         #10 次のトークンへ
+  ^QS [HOME] \[LEFT]: cursor_sleft          #11 カーソルを行頭へ
+  ^QD [END] \[RIGHT]: cursor_sright         #12 カーソルを行末へ
+
+  ^W ^[UP]          : cursor_rup 2          #31 ロールアップ
+  ^Z ^[DOWN]        : cursor_rdown 2        #32 ロールダウン
+  ^R [PGUP] \[UP]   : cursor_pup            #35 ページアップ
+  ^C [PGDN] \[down] : cursor_pdown          #36 ページダウン
+  ^QE               : cursor_sup            #39 カーソルを画面の一番上へ
+  ^QX               : cursor_sdown          #40 カーソルを画面の一番下へ
+  ^QR               : cursor_top            #41 カーソルをファイルの先頭へ
+  ^QC               : cursor_bottom         #42 カーソルをファイルの末尾へ
+
+
+  ^QP               : jump_before 1         #43  直前のカーソル位置
+  ^QM               : jump_mark 1           #44  カーソル行マーク
+  ^QJ               : Jump_line             #45  指定行ジャンプ
+
+  ^QG \[F10]        : jump_tag              #M18 タブジャンプ
+#  ^K1               : jump_Mark 1           #
+#  ^K2               : jump_Mark 2           #
+#  ^K3               : jump_Mark 3           #
+#  ^K4               : jump_Mark 4           #
+
+#  ^Q1               : Jump_before 1         #
+#  ^Q2               : jump_before 2         #
+#  ^Q3               : Jump_before 3         #
+#  ^Q4               : Jump_before 4         #
+
+
+  [CR]              : line_cr               #04 改行
+
+  ^U                : char_undo             #20 削除文字のアンドゥ
+  ^P                : char_input            #22 制御文字の入力
+
+  ^N \[CR]          : line_new              #53 新しい行の挿入
+  ^QL \[F02]U       : line_undo             #54 行編集の取消
+
+
+  ^H [BS]           : del_bs                #14 カーソル前の文字を削除
+  ^G [DEL]          : del_char              #15 カーソル上の文字を削除
+  ^QH \[BS]         : del_tkprev            #16 語の先頭まで削除
+  ^KT \[DEL]        : del_tknext            #17 語の終りまで削除
+  ^QT ^[BS]         : del_sleft             #18 行頭まで削除
+  ^QY ^[DEL]        : del_sright            #19 行末まで削除
+
+
+  ^B [F10]          : block_start           #46 ブロックモード
+  ^Y [F08]          : block_cut             #47 ブロックへ移動
+  ^J [F09]          : block_paste           #48 ブロックから移動
+  ^KK \[F08]        : block_yanc            #49 ブロックへ複写
+  ^KC \[F09]        : block_copy            #50 ブロックから複写
+  ^KY \[F02]C       : block_kill            #51 ブロックバッファの消去
+  ^QB \[F02]B       : block_chlast          #52 ブロックのtop/end
+
+
+  ^@ \[INS]         : search_paging         #30 ページングモード
+
+  ^QF [F06]         : search_in             #55 検索文字列の入力
+  ^QA [F07]         : search_repl           #56 文字列の置換
+  ^QO               : search_repl_redo      #57 前回の置換の実行
+
+  ^L [F05]          : search_getword        #M24検索文字列の連続取得
+
+
+
+  ^QQ               : misc_kmacro           #02 キーボードマクロ
+  [INS]             : opt_set "OverWrite"   #
+  [ESC]G            : misc_insert_output    #   コマンドの実行結果の取り込み
+
+  [F01]             : menu_file             #M2  ファイルメニュー
+  [F04]             : menu_opt              #
+  \[F01]            : menu_opt              #M3  オプションの表示
+  ^KI               : opt_tab               #M15 タブの切替え
+  ^T                : block_dup             #M19 カーソル行複写
+
+  [ESC]D            : misc_redraw           #
+

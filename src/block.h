@@ -1,0 +1,13 @@
+void block_set(block_t *bp);
+bool block_range(long n, block_t *bp, int *x_st, int *x_ed);
+int GetBlockFlg();
+void block_cmove();
+void bstack_init();
+void bstack_fin();
+int block_size(block_t *bp);
+bool bstack_copy();
+void block_cut();
+void BlockInit();
+bool BlockCommand();
+const char *str_paste(char *s, const char *p);
+void bstack_paste();

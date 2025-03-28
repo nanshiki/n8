@@ -1,0 +1,33 @@
+# ファイラー用キーアサイン
+#   左にキー、:の右に実行する命令を書きます。
+#   キーは複数をまとめて指定する事もできます。
+!R	key:eff
+
+  [ESC]             : Escape                   #ファイラー終了
+
+  ^E [UP]           : CursorUp                 #カーソルを一つ上に
+  ^X [DOWN]         : CursorDown               #カーソルを一つ下に
+  ^D [RIGHT]        : WindowChange             #
+  ^S [LEFT] [TAB]   : WindowChange             #ウィンドーを移る
+  w                 : WindowNumChange          #ウィンドーの数を変更する
+  @                 : ReRead                   #ディレクトリ再読み込み
+  r                 : Rename                   #ファイルをリネーム
+  k                 : Mkdir                    #ディレクトリ作成
+  ^R \[UP] [PPAGE]  : PageUp                   #カーソルを一ページ上に
+  ^C \[DOWN] [NPAGE]: PageDown                 #カーソルを一ページ下に
+  ^W ^[UP]          : RollUp                   #カーソルを画面の1/4上に
+  ^Z ^[DOWN]        : RollDown                 #カーソルを画面の1/4下に
+  l                 : ChangeDir                #ディレクトリ移動
+  / \               : ChangeDir "/"            #/ ディレクトリに移動
+  ~                 : ChangeDir "~"            #ホームディレクトリに移動
+  q [BS]            : ChangeDir ".."           #一つ上のディレクトリに移動
+  [CR]              : Return                   #ファイルを編集、ディレクトリ移動
+  c                 : FileCp                   #ファイルを複写する
+  m                 : FileMv                   #ファイルを移動する
+  d                 : FileRm                   #ファイルを削除する
+  [SPACE]           : MarkChange               #マークを変更してカーソルを下に
+  *                 : MarkChangeAll            #マークを全反転
+  x                 : Exec -id- %f             #ファイル名を指定して実行
+  h                 : Exec -id-                #コマンドを実行
+  v                 : Exec --d- "$*{PAGER} %f" #PAGER を起動する
+

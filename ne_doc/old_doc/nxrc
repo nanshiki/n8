@@ -1,0 +1,122 @@
+/*
+ *	Nxedit Define File
+ *		I.Neva
+ *		1992.5.12
+ */
+			
+CrMark		=	Off		(on/off)
+TabMark		=	Off		(on/off)
+TabStop		=	8		[number]
+Tab_Space	=	Off		(on/off)
+Number		=	On		(on/off)
+BackFile	=	Off		(on/off)
+UnderLine	=	Off		(on/off)
+FastMode	=	On		(on/off)
+Profile		=	On		(on/off)
+ReadHistory	=	On		(on/off)
+SaveHistory	=	On		(on/off)
+SaveHistoryNum	=	10		[number]
+RollWidth	=	1		[number]
+AutoIndent	=	On		(on/off)
+InputMode	=	Insert		(Insert/OverWrite)
+DirectorySort	=	On		(on/off)
+Cursormode	=	Stop		(stop/free)
+SearchStringMode=	Divide		(same/divide)
+KanjiCode	=	EUC		(EUC/SJIS)
+MessageLang	=	English		(Japanese/English)
+
+/*
+ *
+ * Key Assign
+ *
+ */
+SysCursorup		=	^E
+SysCursordown		=	^X
+SysCursorleft		=	^S
+SysCursorright		=	^D
+SysScrolldown		=	^R
+SysScrollup		=	^C
+SysRollup		=	^W
+SysRolldown		=	^Z
+SysReturn		=	^M
+SysBackspace		=	^H
+SysDeletechar		=	^G
+SysCntrlinput		=	^_
+SysCursorupside		=	^Q^E
+SysCursordownside	=	^Q^X
+SysCursorleftside	=	^Q^S
+SysCursorrightside	=	^Q^D
+SysCursortopside	=	^Q^R
+SysCursorendside	=	^Q^C
+SysEscape		=	^[
+
+
+
+CursorUp	=	^E
+CursorDown	=	^X
+CursorLeft	= 	^S
+CursorRight	=	^D
+ScrollUp	=	^C
+ScrollDown	=	^R
+RollUp		=	^W
+RollDown	=	^Z
+JmpNextTop	=	^J
+NextToken	=	^F
+BeforeToken	=	^A
+DeleteToken	=	^T
+Return		=	^M
+NewLine		=	^N
+BackSpace	=	^H
+DeleteChar	=	^G
+DeleteLine	=	^Y
+UndoLine	=	^P^U
+DeleteToEnd	=	^Q^G
+DeleteToTop	=	^Q^H
+SearchBack	=	^O
+SearchForward	=	^L
+SearchInForward	=       ^Q^F
+SearchInBack	=       ^Q^B
+ChangeString	=	^Q^A
+RepeatChangeOp	=	^Q^P
+toggleFile	=	^U^U
+ChangeFile	=	^U^T
+ChangeFile	=	^Q2			/*f(2)*/
+CntrlInput	=	^_
+CursorLeftSide	=	^Q^S
+CursorRightSide	=	^Q^D
+CursorUpSide	=	^Q^E
+CursorDownSide	=	^Q^X
+CursorTopSide	=	^Q^R
+CursorEndSide	=	^Q^C
+tagJmp          =       ^Q^J
+BlockStart	=	^K^B
+BlockYanc	=	^K^K
+BlockDelete	=	^K^Y
+BlockMove	=	^K^M
+BlockPaste	=	^K^C
+CurrentFileSave	=	^K^S
+AllFileSave_End	=	^K^E
+AllFileKill_End	=	^K^A
+AllFileSave	=	^K^W
+FreshStartFile	=	^K^U
+FileOpen	=	^K^O
+CurrentFileEnd	=	^K^Q
+SystemCommand	=	^[
+SeeOptions	=	^Q3			/*f(3)*/
+SeeOptions	=	^Q^O
+FileMenu	=	^Q1
+ShellEscape	=	^P^S
+MultiFileSearch	=	^\
+MultiFileChange	=	^^
+toggleInputMode	=	^V
+toggleLineNumberKey=	^Q^L
+toggleUnderLine	=	^Q^U
+toggleFastMode	=	^Q^K
+toggleAutoIndent=	^Q^O
+BracketSearch	=	^@
+toggleCursorMode=	^Q^V
+FreshRedraw	=	^Q^Q
+MarkLine	=	^Q^M
+UnMarkLine	=	^P^M
+MacroSetKey	=	^K^Z
+KeyHelp		=	^Q^Z

@@ -1,0 +1,17 @@
+long GetTopNumber();
+long GetLastNumber();
+EditLine *GetTop();
+EditLine *GetLast();
+void lists_debug();
+void lists_init();
+void lists_clear();
+EditLine *MakeLine(const char *buffer);
+void Realloc(EditLine *li, const char *s);
+void AppendLast(EditLine *li);
+void InsertLine(EditLine *bli, EditLine *li);
+void DeleteList(EditLine *li);
+EditLine *GetList(long o_number);
+size_t lists_size(long n_st, long n_en);
+void lists_proc(void func(const char *, void *), void *gp, long n_st, long n_en);
+void lists_add(void *func(char *, void *), void *gp);
+void lists_delete(int n_st, int n_ed);

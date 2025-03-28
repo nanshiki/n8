@@ -1,0 +1,26 @@
+#
+#	Makefile for n8
+#
+
+@SET_MAKE@
+
+PROG = n8
+SUBDIRS = etc lib src
+
+all:
+	@set -e; for i in $(SUBDIRS); \
+	do (cd $$i ; $(MAKE) all ); done
+
+clean:
+	@set -e; for i in $(SUBDIRS); \
+	do (cd $$i ; $(MAKE) clean ); done
+
+distclean:
+	@set -e; for i in $(SUBDIRS); \
+	do (cd $$i ; $(MAKE) distclean ); done
+	rm -f Makefile config.cache config.log config.status
+
+install:
+	@set -e; for i in $(SUBDIRS); \
+	do (cd $$i ; $(MAKE) install ); done;
+

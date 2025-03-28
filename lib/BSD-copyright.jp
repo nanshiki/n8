@@ -1,0 +1,38 @@
+  参考の為の訳文です。
+
+***
+改変を加える場合も、加えない場合も、ソースとバイナリー形式での再
+配布、使用は、下記の条件を満たした場合に許諾される。
+
+  o ソースコードでの再配布物には、必ず上記の著作権表示、この条件
+    リスト、および以下の面責事項を、改変せずにファイルの最初の数
+    行に入れなければならない。
+
+  o バイナリー形式での再配布は、必ず上記の著作権表示、この条件リ
+    スト、以下の面責事項の複製をドキュメンテーション内、あるいは
+    配布と共にパッケージに入れられて提供される他の物の中に入れな
+    ければならない。
+
+Where this Software is combined with software released under the terms of 
+the GNU Public License ("GPL") and the terms of the GPL would require the 
+combined work to also be released under the terms of the GPL, the terms
+and conditions of this License will apply in addition to those of the
+GPL with the exception of any terms or conditions of this License that
+conflict with, or are expressly prohibited by, the GPL.
+
+このソフトウェアは作者及び配布者によって「あるがまま」に提供され
+るものであり、市場性があり売れる製品であるような含みを持たせ、特
+定の目的に適う製品であるかのような、いかなる明示された保証はない。
+また、なにか保証があるような含みを持たせた一切の保証の類からの責
+任もすべて拒否する。
+
+著作者は直接的、非直接的、偶発的、特殊な、典型的、あるいは必然の
+いかなる場合においても、いかなる損害に一切責任は負わない。その損
+害は以下の内容も含み、しかもそれに限定されない。代用となる物やサ
+ービスの調達、効果・データ・利益の低下、商取引の障害、また、どの
+ような責務の論理においても、それが契約に関するものであろうと、厳
+格な責務であろうと、不正行為（不注意やその他の場合も含む）であろ
+うと、このソフトウェアを使用することによって生じるそれらの損害の、
+一切の責任から著作者は免れている。たとえ事前にそれらすべての損害
+への可能性が示唆されていた場合においても同様である。
+***
