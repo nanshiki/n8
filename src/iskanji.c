@@ -363,7 +363,7 @@ int file_kanji_check(FILE *fp)
 				bom = -1;
 			}
 		}
-		if(c == EOF || n_euc > 8 || n_sjis > 8) {
+		if(c == EOF || n_euc > 20 || n_sjis > 20) {
 			if(n_sjis > n_euc && n_sjis > n_utf8 && n_sjis_i == 0 && n_utf8_i > 0) {
 				return KC_sjis;
 			} else if(n_euc > n_sjis && n_euc > n_utf8 && n_euc_i == 0) {
@@ -420,6 +420,9 @@ int file_kanji_check(FILE *fp)
 			}
 		} else {
 			f_utf8 = get_utf8_width(c) - 1;
+			if(f_utf8 == 0 && (c & 0x80)) {
+				++n_utf8_i;
+			}
 		}
 	}
 	return KC_utf8;
