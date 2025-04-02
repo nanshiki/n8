@@ -316,6 +316,16 @@ SHELL void op_search_repl()
 	int res;
 	int nums;
 
+	CrtDrawAll();
+	*s_search = '\0';
+	if(HisGets(s_search, GETS_FIND_MSG, SEARCHS_SYSTEM) == NULL) {
+		return;
+	}
+	*s_repl = '\0';
+	if(HisGets(s_repl, GETS_REPLACE_MSG, SEARCHS_SYSTEM) == NULL) {
+		return;
+	}
+	system_msg("");
 	csr_leupdate();
 
 	nums = 3;
@@ -338,15 +348,6 @@ SHELL void op_search_repl()
 		break;
 	}
 
-	CrtDrawAll();
-	*s_search = '\0';
-	if(HisGets(s_search, GETS_FIND_MSG, SEARCHS_SYSTEM) == NULL) {
-		return;
-	}
-	*s_repl = '\0';
-	if(HisGets(s_repl, GETS_REPLACE_MSG, SEARCHS_SYSTEM) == NULL) {
-		return;
-	}
 	replace();
 }
 
