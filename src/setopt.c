@@ -409,7 +409,7 @@ void opt_default()
 	hash_set(sysinfo.vp_def, "col_ctrl", "4");
 	hash_set(sysinfo.vp_def, "col_crmark", "4");
 	hash_set(sysinfo.vp_def, "col_sysmsg", "B");
-	hash_set(sysinfo.vp_def, "col_search", "T");
+	hash_set(sysinfo.vp_def, "col_search", "3R");
 	hash_set(sysinfo.vp_def, "col_menuc", "6R");
 	hash_set(sysinfo.vp_def, "col_eff_dirc", "3R");
 	hash_set(sysinfo.vp_def, "col_eff_dirn", "6");
