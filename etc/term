@@ -4,7 +4,7 @@
 
 
 #  色設定 最初の数字が前景色、後の数字が背景色
-#       0:black 1:red 2:yellow 3:green 4:blue 5:cyan 6:magenta 7:white
+#       0:black 1:red 2:green 3:yellow 4:blue 5:magenta 6:cyan 7:white
 #       b:bold u:underline r:reverse
 !R	Val
 
@@ -12,15 +12,15 @@
   col_linenum   = 4       #Al 行番号
 
   col_ctrl      = 4       #Ac コントロールコード
-  col_crmark    = U       #   行末マーク
+  col_crmark    = 4       #   行末マーク
 
   col_sysmsg    = B       #   システムメッセージ
-  col_search    = R       #   検索文字列
-  col_menuc     = R       #Ai メニューのカーソル
+  col_search    = 3R      #   検索文字列
+  col_menuc     = 6R      #Ai メニューのカーソル
   col_menun     =         #   メニューの通常の文字
-  col_eff_dirc  = R       #   ファイラーのディレクトリにカーソルがある時
+  col_eff_dirc  = 3R      #   ファイラーのディレクトリにカーソルがある時
   col_eff_dirn  = 6       #   ファイラーのディレクトリ
-  col_eff_normc = R       #Au ファイラーのカーソル
+  col_eff_normc = 3R      #Au ファイラーのカーソル
   col_eff_normn =         #   ファイラーの通常の文字
 
 
