@@ -13,12 +13,13 @@
   TabStop       = 4       #Ta <number>タブストップ数を指定する
   AnsiColor     = On      #   (on/off)ANSIエスケープシーケンスの色を使う
   HideExt       = .o.bak  #   ファイラーやタブ補完から除外する拡張子 間にスペースは入れない事
+  UnderLine     = Off     #   (on/off)カーソル行にアンダーラインを表示する
 
 # キーコンフィグ
-#   /usr/local/share/n8/ などのディレクトリのしたに、
+#   /usr/local/etc/n8/ などのディレクトリに、
 #   key.vz などの定義ファイルの本体があります。
 #   キーアサイン等をいじる場合は、それを適当に
-#   ~/.n8/ のしたにコピーしてからいじってみてください。
+#   ~/.n8/ にコピーしてからいじってみてください。
 
 !I	key.ele           #editor keybind
 !I	key.system        #system keybind
