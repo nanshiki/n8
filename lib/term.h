@@ -61,18 +61,17 @@ extern void term_csrn();
 extern void term_csrh();
 
 extern void term_cls();
-extern void term_clrtoe();
-
+extern void term_clrtoe(int ac);
 
 extern void term_locate(int y, int x);
 extern void term_movex(int x);
 
-extern void term_puts(const char *s);
+extern void term_puts(const char *s, const char *ac);
 extern void term_putch(int c);
 extern void term_printf(const char *fmt,...);
 
 
-typedef unsigned char	color_t;
+typedef unsigned char color_t;
 
 #define AC_normal	0
 
@@ -85,11 +84,12 @@ typedef unsigned char	color_t;
 #define AC_cyan		6+8
 #define AC_white	7+8
 
-#define AC_color(cl)	((cl)&15)
+#define AC_color(cl)	((cl) & 0x0f)
+#define AC_attrib(cl)	((cl) & 0xf0)
 
-#define AC_reverse	16
-#define AC_under	32
-#define AC_bold		64
+#define AC_reverse	0x10
+#define AC_under	0x20
+#define AC_bold		0x40
 
 #define AC_ignore	255
 

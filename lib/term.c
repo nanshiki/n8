@@ -183,9 +183,9 @@ static term_t term;
 #define CS_normal	1
 #define CS_hide		2
 
-#define SCR_code(cl, ch)	((((long long)cl)&0xff)<<32 | (ch))
-#define SCR_char(scr)		((scr)&0xffffffffLL)
-#define SCR_color(scr)		(((scr)&0xff00000000LL)>>32)
+#define SCR_code(cl, ch)	((((long long)cl) & 0xff) << 32 | (ch))
+#define SCR_char(scr)		((scr) & 0xffffffffLL)
+#define SCR_color(scr)		(((scr) & 0xff00000000LL) >> 32)
 
 #define SCR_ignore	-1
 
@@ -302,10 +302,10 @@ void term_scroll(int n)
 	term.tq[term.y] += n;
 }
 
-static void term_scr_clr(long long *scr, int x)
+static void term_scr_clr(long long *scr, int x, int ac)
 {
 	while(x < term.sizex) {
-		scr[x++] = SCR_code(AC_normal, ' ');
+		scr[x++] = SCR_code(ac, ' ');
 	}
 }
 
@@ -316,7 +316,7 @@ void term_cls()
 	term_queue_clear();
 	term.f_cls = TRUE;
 	for(i = 0 ; i < term.sizey ; ++i) {
-		term_scr_clr(term.scr[i], 0);
+		term_scr_clr(term.scr[i], 0, AC_normal);
 	}
 }
 
@@ -330,8 +330,8 @@ static void term_scr_init()
 		term.scr[i] = mem_alloc(term.sizex * sizeof(long long));
 		term.scr0[i] = mem_alloc(term.sizex * sizeof(long long));
 
-		term_scr_clr(term.scr[i], 0);
-		term_scr_clr(term.scr0[i], 0);
+		term_scr_clr(term.scr[i], 0, AC_normal);
+		term_scr_clr(term.scr0[i], 0, AC_normal);
 	}
 	term.f_cls = FALSE;
 	term.tq = mem_alloc(term.sizey * sizeof(int));
@@ -346,7 +346,7 @@ static void term_scr_init()
 
 static void term_setmode(int mode)
 {
-	if((mode& TM_init) && !(term.mode & TM_init)) {
+	if((mode & TM_init) && !(term.mode & TM_init)) {
 		if(mode & TM_tinit) {
 			term_tputs(term.t_init);
 		}
@@ -515,7 +515,7 @@ void term_report()
 	report_printf("  term.cn_locate = %s\n", term.cn_locate);
 }
 
-void	term_kflush()
+void term_kflush()
 {
 	tcflush(fileno(term.fp_tty), TCIFLUSH);
 }
@@ -688,9 +688,9 @@ void term_locate(int y, int x)
 	term.y = y;
 }
 
-void term_clrtoe()
+void term_clrtoe(int ac)
 {
-	term_scr_clr(term.scr[term.y], term.x);
+	term_scr_clr(term.scr[term.y], term.x, ac);
 }
 
 static int nbytes(int c)
@@ -712,7 +712,7 @@ static int nbytes(int c)
 	return 1;
 }
 
-void term_puts(const char *s)
+void term_puts(const char *s, const char *ac)
 {
 	int len;
 	long long n;
@@ -729,7 +729,11 @@ void term_puts(const char *s)
 	while(*s != '\0' && term.x < term.sizex) {
 		len = nbytes(*s);
 		if(len == 1) {
-			term.scr[term.y][term.x]= SCR_code(term.cl, *s & 0xff);
+			if(ac != NULL && *ac) {
+				term.scr[term.y][term.x] = SCR_code(AC_color(*ac) | AC_attrib(term.cl), *s & 0xff);
+			} else {
+				term.scr[term.y][term.x] = SCR_code(term.cl, *s & 0xff);
+			}
 		} else {
 			if(term.x + len > term.sizex) {
 				break;
@@ -739,25 +743,40 @@ void term_puts(const char *s)
 				term.scr[term.y][term.x] = SCR_code(term.cl, n);
 				term.scr[term.y][++term.x] = SCR_ignore;
 				s++;
+				if(ac != NULL) {
+					ac++;
+				}
 			} else if(len == 3) {
 				n = (*s & 0xff) << 16 | (*(s + 1) & 0xff) << 8 | (*(s + 2) & 0xff);
 				if(n >= 0xefbda1 && n <= 0xefbe9f) {
 					// 半角カナ
 					term.scr[term.y][term.x] = SCR_code(term.cl, n);
 					s += 2;
+					if(ac != NULL) {
+						ac += 2;
+					}
 				} else {
 					term.scr[term.y][term.x] = SCR_code(term.cl, n);
 					term.scr[term.y][++term.x] = SCR_ignore;
 					s += 2;
+					if(ac != NULL) {
+						ac += 2;
+					}
 				}
 			} else if(len == 4) {
 				n = (*s & 0xff) << 24 | (*(s + 1) & 0xff) << 16 | (*(s + 2) & 0xff) << 8 | (*(s + 3) & 0xff);
 				term.scr[term.y][term.x] = SCR_code(term.cl, n);
 				term.scr[term.y][++term.x] = SCR_ignore;
 				s += 3;
+				if(ac != NULL) {
+					ac += 3;
+				}
 			}
 		}
 		++term.x;
+		if(ac != NULL) {
+			++ac;
+		}
 		++s;
 	}
 	if(term.x < term.sizex && term.scr[term.y][term.x] == SCR_ignore) {
@@ -772,7 +791,7 @@ void term_putch(int c)
 	*buf = c & 0xff;
 	buf[1] = '\0';
 
-	term_puts(buf);
+	term_puts(buf, NULL);
 }
 
 void term_printf(const char *fmt, ...)
@@ -784,12 +803,12 @@ void term_printf(const char *fmt, ...)
 	vsprintf(buf, fmt, args);
 	va_end(args);
 
-	term_puts(buf);
+	term_puts(buf, NULL);
 }
 
-#define isreverse(cl)	((cl)&AC_reverse)
-#define isunder(cl)		((cl)&AC_under)
-#define isbold(cl)		((cl)&AC_bold)
+#define isreverse(cl)	((cl) & AC_reverse)
+#define isunder(cl)		((cl) & AC_under)
+#define isbold(cl)		((cl) & AC_bold)
 
 static void term_color_flush()
 {
@@ -799,7 +818,7 @@ static void term_color_flush()
 		term_tputs(term.t_normal);
 		term.cl0 = AC_normal;
 	}
-	if(term.mode& TM_ansicolor) {
+	if(term.mode & TM_ansicolor) {
 		if(AC_color(term.cl0) != AC_normal && AC_color(term.cl) == AC_normal) {
 			term_tputs(term.t_normal);
 			term.cl0 = AC_normal;
@@ -936,7 +955,7 @@ static void term_all_flush()
 		term.y0 = 0;
 
 		for(i = 0 ; i < term.sizey ; ++i) {
-			term_scr_clr(term.scr0[i], 0);
+			term_scr_clr(term.scr0[i], 0, AC_normal);
 		}
 		term.f_cls = FALSE;
 	}
@@ -952,7 +971,7 @@ static void term_all_flush()
 				p = term.scr0[term.sizey - 1];
 				memmove(term.scr0 + i + 1, term.scr0 + i, sizeof(void *) * (term.sizey - i - 1));
 				term.scr0[i] = p;
-				term_scr_clr(term.scr0[i], 0);
+				term_scr_clr(term.scr0[i], 0, AC_normal);
 				--term.tq[i];
 			}
 		}
@@ -968,7 +987,7 @@ static void term_all_flush()
 				p = term.scr0[i];
 				memmove(term.scr0 + i, term.scr0 + i + 1, sizeof(void *) * (term.sizey - i - 1));
 				term.scr0[term.sizey - 1] = p;
-				term_scr_clr(term.scr0[term.sizey - 1], 0);
+				term_scr_clr(term.scr0[term.sizey - 1], 0, AC_normal);
 				++term.tq[i];
 			}
 		}
@@ -1059,7 +1078,7 @@ static void term_all_flush()
 			term_color_flush();
 			term_tputs(term.l_clear);
 
-			term_scr_clr(p0, n);
+			term_scr_clr(p0, n, AC_normal);
 		}
 	}
 	term_flush();
