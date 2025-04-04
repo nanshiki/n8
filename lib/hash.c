@@ -76,19 +76,21 @@ char *hash_get(hash_t *gvp, const char *ks)
 
 void hash_set(hash_t *gvp, const char *ks, const char *vs)
 {
-	char *p;
+	if(ks != NULL && vs != NULL) {
+		char *p;
 
-	p = hash_get(gvp, ks);
-	if(p == NULL) {
-		if(gvp->num >= gvp->max) {
-			gvp->max *= 2;
-			gvp->item = (hash_item_t *)mem_realloc(gvp->item, sizeof(hash_item_t) * gvp->max);
+		p = hash_get(gvp, ks);
+		if(p == NULL) {
+			if(gvp->num >= gvp->max) {
+				gvp->max *= 2;
+				gvp->item = (hash_item_t *)mem_realloc(gvp->item, sizeof(hash_item_t) * gvp->max);
+			}
+			strjncpy(gvp->item[gvp->num].key, ks, LN_key);
+			p = gvp->item[gvp->num].val;
+			++gvp->num;
 		}
-		strjncpy(gvp->item[gvp->num].key, ks, LN_key);
-		p = gvp->item[gvp->num].val;
-		++gvp->num;
+		strjncpy(p, vs, LN_val);
 	}
-	strjncpy(p, vs, LN_val);
 }
 
 void hash_defset(hash_t *gvp, const char *ks, const char *vs)
