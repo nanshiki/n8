@@ -3,9 +3,9 @@
 #
 
 
-#  色設定 最初の数字が前景色、後の数字が背景色
+#  色設定
 #       0:black 1:red 2:green 3:yellow 4:blue 5:magenta 6:cyan 7:white
-#       b:bold u:underline r:reverse
+#       B:bold U:underline R:reverse
 !R	Val
 
   col_block     = 6R      #Ah ブロックモード
