@@ -178,6 +178,7 @@ SHELL void op_search_next()
 
 	csr_leupdate();
 	system_msg(SEARCHING_MSG);
+
 	y = search_next(s_search, GetBufferOffset() + 1, GetLineOffset(), &rm);
 
 	if(y == -1) {
@@ -258,7 +259,7 @@ void replace()
 			term_color(sysinfo.c_search);
 			memcpy(buf, GetList(y)->buffer + rm.rm_so, rm.rm_eo - rm.rm_so);
 			buf[rm.rm_eo - rm.rm_so] = '\0';
-			term_puts(buf);
+			term_puts(buf, NULL);
 
 			c = keysel(REPLACE_YNA_MSG, "Yy\r\nNnAa \x1b");
 			if(c == '\x1b') {

@@ -91,3 +91,4 @@
 #define	OPT_KANJICODE_MSG		(sysinfo.japanesef ? "K)漢字コード             : ":"Kanji Code               : ")
 #define	OPT_TAB_STOP_MSG		(sysinfo.japanesef ? "T)タブストップ数         : ":"Tab Stop                 : ")
 #define	OPT_PASTE_MOVE_MSG		(sysinfo.japanesef ? "V)ペーストでカーソル移動 : ":"V)Paste to move cursor   : ")
+#define	OPT_UNDERLINE_MSG		(sysinfo.japanesef ? "U)アンダーライン表示     : ":"Underline                : ")

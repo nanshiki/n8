@@ -13,7 +13,7 @@ int GetMinCol();
 int GetMaxCol();
 int GetColWidth();
 void widthputs(const char *s, size_t len);
-void crt_crmark();
+void crt_crmark(int under);
 void crt_draw_proc(const char *s, crt_draw_t *gp);
 void CrtDrawAll();
 void DeleteAndDraw();

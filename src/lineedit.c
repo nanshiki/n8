@@ -147,7 +147,7 @@ void le_edit(le_t *lep, int ch, int cm)
 	}
 }
 
-size_t le_regbuf(const char *s, char *t)
+size_t le_regbuf(const char *s, char *t, char *ac)
 {
 	int n, a;
 
@@ -159,16 +159,31 @@ size_t le_regbuf(const char *s, char *t)
 
 			c = sysinfo.tabcode;
 			t[n] = sysinfo.tabmarkf && c != -1 ? c : ' ';
+			if(ac != NULL) {
+				ac[n] = sysinfo.tabmarkf && c != -1 ? sysinfo.c_tab : 0;
+			}
 			a = (n / sysinfo.tabstop + 1) * sysinfo.tabstop;
 			for( ; n < a ; ++n) {
 			 	t[n + 1] = ' ';
+				if(ac != NULL) {
+			 		ac[n + 1] = 0;
+			 	}
 			}
 			continue;
 		}
 		if(iscnt(*s)) {
+			if(ac != NULL) {
+				ac[n] = sysinfo.c_ctrl;
+			}
 			t[n++] = '^';
+			if(ac != NULL) {
+				ac[n] = sysinfo.c_ctrl;
+			}
 			t[n++] = *s + '@';
 			continue;
+		}
+		if(ac != NULL) {
+			ac[n] = 0;
 		}
 		t[n++] = *s;
 	}
@@ -246,7 +261,7 @@ dspfmt_t *dspreg_legets(void *vp, int a, int sizex, int sizey)
 	dfpb = dfp = dsp_fmtinit((char *)vp, NULL);
 	dfp->col = sysinfo.c_sysmsg;
 
-	n = le_regbuf(legets_lep->buf, buf);
+	n = le_regbuf(legets_lep->buf, buf, NULL);
 	dfp = dsp_fmtinit(buf + legets_lep->sx, dfp);
 
 	return dfpb;
@@ -546,7 +561,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 		}
 		clear_file_list(&fl);
 		term_locate(path_drp->y, 0);
-		term_clrtoe();
+		term_clrtoe(AC_normal);
 		dsp_regfin(path_drp);
 	}
 	dsp_regfin(drp);

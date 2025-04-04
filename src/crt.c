@@ -57,12 +57,15 @@ void widthputs(const char *s, size_t len)
 	char buf[MAXLINESTR + 1];
 
 	strjfcpy(buf, s, MAXLINESTR, len);
-	term_puts(buf);
+	term_puts(buf, NULL);
 }
 
-void crt_crmark()
+void crt_crmark(int under)
 {
 	term_color(sysinfo.c_crmark);
+	if(under) {
+		term_color_underline();
+	}
 	term_putch('!');
 }
 
@@ -70,9 +73,11 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 {
 	char buf[MAXEDITLINE + 1];
 	char buf_dsp[MAXEDITLINE + 1], *p;
+	char buf_ac[MAXEDITLINE + 1], *ac;
 	bool cf, bf;
-	int ln, sx, n, m;
+	int ln, sx, n, m, len;
 	int x_st, x_ed;
+	int under = (sysinfo.underlinef && gp->dline == GetRow());
 
 	if(sysinfo.numberf) {
 		term_locate(gp->dline, 0);
@@ -81,13 +86,13 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 	}
 
 	p = buf_dsp;
+	ac = buf_ac;
 	cf = FALSE;
 	bf = FALSE;
 	if(s == NULL) {
 		strcpy(buf_dsp, "~");
 	} else {
 		strcpy(buf, gp->line == GetLineOffset() ? csrle.buf : s);
-
 		if(*s == '\0' || s[strlen(s) - 1] != '\n') {
 			strcat(buf, "[EOF]");
 		} else {
@@ -97,7 +102,7 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 			buf[strlen(buf) - 1] = '\0';
 		}
 
-		ln = le_regbuf(buf, p);
+		ln = le_regbuf(buf, p, ac);
 
 		sx = GetScroll();
 		n = kanji_poscandsp(sx, p);
@@ -111,6 +116,7 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 				}
 				sx = kanji_posbuf(sx, p);
 			}
+			ac += sx;
 			p += sx;
 		}
 		n = kanji_posbuf(kanji_poscandsp(GetColWidth() - NumWidth, p), p);
@@ -124,10 +130,12 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 		}
 	}
 	term_locate(gp->dline, NumWidth);
-
 	if(!block_range(gp->line, &gp->bm, &x_st, &x_ed)) {
 		term_color_normal();
-		term_puts(p);
+		if(under) {
+			term_color_underline();
+		}
+		term_puts(p, ac);
 	} else {
 		n = 0;
 
@@ -146,24 +154,34 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 				x_st = strlen(p);
 			}
 			ln = utf8_disp_copy(buf, p, x_st);
-			p += strlen(buf);
+			len = strlen(buf);
+			p += len;
 			x_ed -= ln;
 			n = ln;
 
 			term_color_normal();
-			term_puts(buf);
+			if(under) {
+				term_color_underline();
+			}
+			term_puts(buf, ac);
+			ac += len;
 		}
 
 		term_color(sysinfo.c_block);
 		if(x_ed <= strlen(p)) {
 			ln = utf8_disp_copy(buf, p, x_ed);
-			p += strlen(buf);
+			len = strlen(buf);
+			p += len;
+			ac += len;
 			n += ln;
-			term_puts(buf);
+			term_puts(buf, NULL);
 
 			term_color_normal();
+			if(under) {
+				term_color_underline();
+			}
 		}
-		term_puts(p);
+		term_puts(p, ac);
 
 		if(gp->bm.blkm == BLKM_x && cf && *p == '\0') {
 			 cf = FALSE;
@@ -178,10 +196,11 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 		}
 	}
 	if(cf) {
-		crt_crmark();
+		crt_crmark(under);
 	}
 	term_color_normal();
-	term_clrtoe();
+	term_clrtoe(under ? AC_under : AC_normal);
+	term_color_normal();
 
 	++gp->line;
 	++gp->dline;
@@ -353,7 +372,7 @@ void system_msg(const char *buffer)	// 暫定的dsp化
 
 	if(*buffer == '\0') {
 		term_locate(GetMaxRow(), 0);
-		term_clrtoe();					// !!
+		term_clrtoe(AC_normal);
 		return;
 	}
 

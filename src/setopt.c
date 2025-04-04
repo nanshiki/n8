@@ -27,15 +27,16 @@ enum {
 	optionOverWrite,
 	optionFreeCursor,
 	optionAutoIndent,
-	optionBackup,
+	optionTabStop,
 	optionTabMark,
 	optionCrMark,
+	optionUnderLine,
 	optionNoCase,
+	optionPasteMove,
+	optionBackup,
 	optionJapanese,
 	optionKanjiCode,
 	optionRetMode,
-	optionTabStop,
-	optionPasteMove,
 
 	optionMax
 };
@@ -343,6 +344,7 @@ void sysinfo_optset()
 	sysinfo.freecursorf = hash_istrue(sysinfo.vp_def, "freecursor");
 	sysinfo.numberf     = hash_istrue(sysinfo.vp_def, "number");
 	sysinfo.pastemovef  = hash_istrue(sysinfo.vp_def, "pastemove");
+	sysinfo.underlinef  = hash_istrue(sysinfo.vp_def, "underline");
 
 	if(hash_istrue(sysinfo.vp_def, "AnsiColor")) {
 		term_color_enable();
@@ -356,9 +358,7 @@ void sysinfo_optset()
 
 	sysinfo.c_ctrl      = term_cftocol(hash_get(sysinfo.vp_def, "col_ctrl"));
 	sysinfo.c_crmark    = term_cftocol(hash_get(sysinfo.vp_def, "col_crmark"));
-
-	// !!!!!!
-	sysinfo.c_crmark    = (sysinfo.c_crmark & 240) | (AC_color(sysinfo.c_ctrl));
+	sysinfo.c_tab       = term_cftocol(hash_get(sysinfo.vp_def, "col_tab"));
 
 	sysinfo.c_sysmsg    = term_cftocol(hash_get(sysinfo.vp_def, "col_sysmsg"));
 	sysinfo.c_search    = term_cftocol(hash_get(sysinfo.vp_def, "col_search"));
@@ -366,6 +366,7 @@ void sysinfo_optset()
 	sysinfo.c_menun     = term_cftocol(hash_get(sysinfo.vp_def, "col_menun"));
 	sysinfo.c_eff_dirc  = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_dirc"));
 	sysinfo.c_eff_dirn  = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_dirn"));
+
 	sysinfo.c_eff_normc = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normc"));
 	sysinfo.c_eff_normn = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normn"));
 
@@ -398,16 +399,24 @@ SHELL void op_opt_set()
 
 void opt_default()
 {
+	char *env;
+
 	hash_set(sysinfo.vp_def, "TabStop", "8");
 	hash_set(sysinfo.vp_def, "tabcode", ">");
 	hash_set(sysinfo.vp_def, "Japanese", "true");
 	hash_set(sysinfo.vp_def, "AutoIndent", "true");
 	hash_set(sysinfo.vp_def, "ansicolor", "true");
+	if((env = getenv("LANG")) != NULL) {
+		hash_set(sysinfo.vp_def, "Locale", env);
+	} else {
+		hash_set(sysinfo.vp_def, "Locale", "ja_JP.UTF-8");
+	}
 
 	hash_set(sysinfo.vp_def, "col_block", "R");
 	hash_set(sysinfo.vp_def, "col_linenum", "4");
 	hash_set(sysinfo.vp_def, "col_ctrl", "4");
 	hash_set(sysinfo.vp_def, "col_crmark", "4");
+	hash_set(sysinfo.vp_def, "col_tab", "4");
 	hash_set(sysinfo.vp_def, "col_sysmsg", "B");
 	hash_set(sysinfo.vp_def, "col_search", "3R");
 	hash_set(sysinfo.vp_def, "col_menuc", "6R");
@@ -434,8 +443,8 @@ void option_set_proc(int a, mitem_t *mip, void *vp)	// !!!!
 	case optionAutoIndent:
 		sprintf(mip->str, "%s%-9s", OPT_AUTOINDENT_MODE_MSG, (hash_istrue(sysinfo.vp_def, "autoindent") ? "ON" : "OFF"));
 		break;
-	case optionBackup:
-		sprintf(mip->str, "%s%-9s", OPT_BACKUP_MSG, (hash_istrue(sysinfo.vp_def, "backup") ? "ON" : "OFF"));
+	case optionTabStop:
+		sprintf(mip->str, "%s%-9d", OPT_TAB_STOP_MSG, atoi(hash_get(sysinfo.vp_def, "TabStop")));
 		break;
 	case optionTabMark:
 		sprintf(mip->str, "%s%-9s", OPT_TAB_MARK_MSG, (hash_istrue(sysinfo.vp_def, "tabmark") ? "ON" : "OFF"));
@@ -443,8 +452,17 @@ void option_set_proc(int a, mitem_t *mip, void *vp)	// !!!!
 	case optionCrMark:
 		sprintf(mip->str, "%s%-9s", OPT_CR_MARK_MSG, (hash_istrue(sysinfo.vp_def, "crmark") ? "ON" : "OFF"));
 		break;
+	case optionUnderLine:
+		sprintf(mip->str, "%s%-9s", OPT_UNDERLINE_MSG,  (hash_istrue(sysinfo.vp_def, "underline") ? "ON" : "OFF"));
+		break;
 	case optionNoCase:
 		sprintf(mip->str, "%s%-9s", OPT_SEARCH_CH_MSG, (hash_istrue(sysinfo.vp_def, "nocase") ? "OFF" : "ON"));
+		break;
+	case optionPasteMove:
+		sprintf(mip->str, "%s%-9s", OPT_PASTE_MOVE_MSG,  (hash_istrue(sysinfo.vp_def, "pastemove") ? "ON" : "OFF"));
+		break;
+	case optionBackup:
+		sprintf(mip->str, "%s%-9s", OPT_BACKUP_MSG, (hash_istrue(sysinfo.vp_def, "backup") ? "ON" : "OFF"));
 		break;
 	case optionJapanese:
 		sprintf(mip->str, "%s%-9s", OPT_MESSAGE_MSG, (hash_istrue(sysinfo.vp_def, "Japanese") ? "ON" : "OFF"));
@@ -454,12 +472,6 @@ void option_set_proc(int a, mitem_t *mip, void *vp)	// !!!!
 		break;
 	case optionRetMode:
 		sprintf(mip->str, "%s%-9s", "R)CR/LF                  : ", opt_rm[edbuf[CurrentFileNo].rm]);
-		break;
-	case optionTabStop:
-		sprintf(mip->str, "%s%-9d", OPT_TAB_STOP_MSG, atoi(hash_get(sysinfo.vp_def, "TabStop")));
-		break;
-	case optionPasteMove:
-		sprintf(mip->str, "%s%-9s", OPT_PASTE_MOVE_MSG,  (hash_istrue(sysinfo.vp_def, "pastemove") ? "ON" : "OFF"));
 		break;
 	}
 }
@@ -492,8 +504,8 @@ void SeeOption()
 		case optionAutoIndent:
 			opt_set("autoindent", NULL);
 			break;
-		case optionBackup:
-			opt_set("backup", NULL);
+		case optionTabStop:
+			op_opt_tab();
 			break;
 		case optionTabMark:
 			opt_set("tabmark", NULL);
@@ -501,8 +513,17 @@ void SeeOption()
 		case optionCrMark:
 			opt_set("crmark", NULL);
 			break;
+		case optionUnderLine:
+			opt_set("underline", NULL);
+			break;
 		case optionNoCase:
 			opt_set("NoCase", NULL);
+			break;
+		case optionPasteMove:
+			opt_set("pastemove", NULL);
+			break;
+		case optionBackup:
+			opt_set("backup", NULL);
 			break;
 		case optionJapanese:
 			opt_set("Japanese", NULL);
@@ -512,12 +533,6 @@ void SeeOption()
 			break;
 		case optionRetMode:
 			op_opt_retmode();
-			break;
-		case optionTabStop:
-			op_opt_tab();
-			break;
-		case optionPasteMove:
-			opt_set("pastemove", NULL);
 			break;
 		}
 		CrtDrawAll();
