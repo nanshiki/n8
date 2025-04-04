@@ -40,7 +40,7 @@
 
   ^QP               : jump_before           #43  直前のカーソル位置
   ^QM               : jump_mark             #44  カーソル行マーク
-  ^QJ               : Jump_line             #45  指定行ジャンプ
+  ^OG ^QJ           : Jump_line             #45  指定行ジャンプ
 
   ^K1               : jump_Mark 1           #M16 マーク #1～#4
   ^K2               : jump_Mark 2           #
