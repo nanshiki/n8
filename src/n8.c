@@ -28,6 +28,7 @@
 #include "setopt.h"
 #include "sh.h"
 #include <ctype.h>
+#include <locale.h>
 
 #include <errno.h>
 #include <sys/types.h>
@@ -57,7 +58,7 @@ void n8_loop(int region)
 		if(region == 0 && csrse.gf) {
 			csrse.gf = FALSE;
 			term_locate(GetRow(), GetCol() + NumWidth);
-			crt_crmark();
+			crt_crmark(FALSE);
 		}
 		if(key == -1) {
 			continue;
@@ -98,6 +99,11 @@ void n8_init()
 		sysinfo.shell = "/bin/sh";
 	}
 	config_read("n8rc");
+
+	p = hash_get(sysinfo.vp_def, "Locale");
+	if(p != NULL && isalpha(*p)) {
+		setlocale(LC_CTYPE, p);
+	}
 }
 
 void delete_lock_file()
