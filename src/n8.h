@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.00"
+#define	VER "4.01"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -153,6 +153,7 @@ typedef struct
 	color_t c_eff_dirn;
 	color_t c_eff_normc;
 	color_t c_eff_normn;
+	color_t c_tab;
 
 	bool crmarkf;	/* crmarkˆ—‚ğs‚¤‚©‚Ç‚¤‚© */
 	bool tabmarkf;
@@ -165,6 +166,7 @@ typedef struct
 	bool backupf;
 	bool nocasef;
 	bool pastemovef;
+	bool underlinef;
 
 	char systemline[MAXEDITLINE + 1];
 	dspreg_t *sl_drp;
