@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.01"
+#define	VER "4.02"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -167,6 +167,7 @@ typedef struct
 	bool nocasef;
 	bool pastemovef;
 	bool underlinef;
+	bool nfdf;
 
 	char systemline[MAXEDITLINE + 1];
 	dspreg_t *sl_drp;
