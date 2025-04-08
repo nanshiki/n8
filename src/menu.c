@@ -162,7 +162,7 @@ void menu_csrmove(menu_t *mnp, int ly)
 		return;
 	}
 	if(ly - ly_b > mnp->drp->sizey - 2 - mnp->cy -1) {
-		ly -= mnp->drp->sizey - 2 -mnp->cy - 1;
+		ly -= mnp->drp->sizey - 2 - mnp->cy - 1;
 		mnp->cy = mnp->drp->sizey - 2 - 1;
 		mnp->sy += ly - ly_b;
 		return;

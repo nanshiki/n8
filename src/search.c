@@ -48,7 +48,7 @@ SHELL void op_search_getword()
 	if(*s_get == '\0') {
 		lx = csrle.lx;
 	} else {
-		lx = csrle.lx+strlen(s_get);
+		lx = csrle.lx + strlen(s_get);
 	}
 
 	lx = kanji_tknext(csrle.buf, lx, FALSE) - csrle.lx;

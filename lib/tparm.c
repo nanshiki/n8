@@ -545,30 +545,30 @@ char *tparm(const char *str, ...)
 					sp++;
 					break;
 				}
-				if(getarg(termcap-1, INTEGER, &i)) {
+				if(getarg(termcap - 1, INTEGER, &i)) {
 					return OOPS;
 				}
 				sp += cvtchar(sp, &c);
 				if(i > c) {
 					sp += cvtchar(sp, &c);
-					arg_list[termcap-1].integer += c;
+					arg_list[termcap - 1].integer += c;
 				} else {
 					sp += cvtchar(sp, &c);
 				}
 				sp++;
 				break;
 			case 'B':
-				if(!termcap || getarg(termcap-1, INTEGER, &i)) {
+				if(!termcap || getarg(termcap - 1, INTEGER, &i)) {
 					return OOPS;
 				}
-				arg_list[termcap-1].integer = 16*(i/10)+i%10;
+				arg_list[termcap - 1].integer = 16 * (i / 10) + i % 10;
 				sp++;
 				break;
 			case 'D':
-				if(!termcap || getarg(termcap-1, INTEGER, &i)) {
+				if(!termcap || getarg(termcap - 1, INTEGER, &i)) {
 					return OOPS;
 				}
-				arg_list[termcap-1].integer = i - 2 * (i % 16);
+				arg_list[termcap - 1].integer = i - 2 * (i % 16);
 				sp++;
 				break;
 			case 'p':

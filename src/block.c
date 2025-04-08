@@ -181,7 +181,7 @@ void block_cut()
 	char buf[MAXEDITLINE + 1];
 
 	if(bkm.blkm == BLKM_y && bkm.y_st < GetLastNumber()) {
-		lists_delete(bkm.y_st, bkm.y_ed-1);
+		lists_delete(bkm.y_st, bkm.y_ed - 1);
 	} else {
 		ed = GetList(bkm.y_st);
 		block_range(bkm.y_st, &bkm, &x_st, &x_ed);
