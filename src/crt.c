@@ -57,7 +57,9 @@ void widthputs(const char *s, size_t len)
 	char buf[MAXLINESTR + 1];
 
 	strjfcpy(buf, s, MAXLINESTR, len);
-	term_puts(buf, NULL);
+	if(term_puts(buf, NULL) && sysinfo.nfdf) {
+		term_redraw_line();
+	}
 }
 
 void crt_crmark(int under)
@@ -112,7 +114,7 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 				sx = ln;
 			} else {
 				if(sx != n) {
-					memset(p + m, ' ', kanji_countbuf(p[m]));
+					memset(p + m, ' ', kanji_countbuf(&p[m]));
 				}
 				sx = kanji_posbuf(sx, p);
 			}
@@ -135,7 +137,9 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 		if(under) {
 			term_color_underline();
 		}
-		term_puts(p, ac);
+		if(term_puts(p, ac) && sysinfo.nfdf) {
+			term_redraw_line();
+		}
 	} else {
 		n = 0;
 
@@ -213,7 +217,7 @@ void CrtDrawAll()
 
 	block_set(&cd.bm);
 	if(csrle.l_sx == csrle.sx) {
-		sline = csrse.l_sy-csr_getsy();
+		sline = csrse.l_sy - csr_getsy();
 		if(abs(sline) < GetRowWidth() - 3) { // !!
 			term_locate(GetMinRow(), 0);
 			term_scroll(sline);

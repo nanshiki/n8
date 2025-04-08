@@ -64,11 +64,15 @@ char *dsp_add(char *str, int length)
 	while(length > 0 && *str != '\0') {
 		int ch = (unsigned char)*str & 0xf0;
 		if(ch >= 0xc0) {
+			if(is_combining_char(str)) {
+				str += 3;
+				continue;
+			}
 			length--;
 			str++;
-			if(*str != '\0' && ch >= 0xe0) {
+			if(((unsigned char)*str & 0x80) && ch >= 0xe0) {
 				str++;
-				if(*str != '\0' && ch == 0xf0) {
+				if(((unsigned char)*str & 0x80) && ch == 0xf0) {
 					str++;
 				}
 			}
@@ -82,6 +86,28 @@ char *dsp_add(char *str, int length)
 	return str;
 }
 
+int get_combining_char_count(char *p)
+{
+	int count = 0;
+
+	while(*p != '\0') {
+		unsigned char ch = (unsigned char)*p & 0xf0;
+		if(ch == 0xc0 || ch == 0xd0) {
+			p += 2;
+		} else if(ch == 0xe0) {
+			if(is_combining_char(p)) {
+				count += 2;
+			}
+			p += 3;
+		} else if(ch == 0xf0) {
+			p += 4;
+		} else {
+			p++;
+		}
+	}
+	return count;
+}
+
 void dsp_regview(dspreg_t *drp)
 {
 	dspfmt_t *dfp, *dfp_b;
@@ -89,6 +115,7 @@ void dsp_regview(dspreg_t *drp)
 	int n, m, i;
 	int disp_length;
 	char spc_buf[LN_dspbuf + 1];
+	int count;
 
 	for(i = 0 ; i < drp->sizey ; ++i) {
 		dfp = drp->func(drp->vp, i, drp->sizex, drp->sizey);
@@ -104,6 +131,7 @@ void dsp_regview(dspreg_t *drp)
 		memset(spc_buf, ' ', n);
 		spc_buf[n] = '\0';
 
+		count = 0;
 		for(;;) {
 			if(*p == '\0') {
 				 if(dfp->next == NULL) {
@@ -115,9 +143,10 @@ void dsp_regview(dspreg_t *drp)
 			}
 			disp_length =  min(get_display_length(p), n - m);
 			term_color(dfp->col);
-			term_locate(drp->y + i, drp->x + m);
+			term_locate(drp->y + i, drp->x + m + count);
 			widthputs(p, disp_length);
 			m += disp_length;
+			count = get_combining_char_count(p);
 			p = dsp_add(p, disp_length);
 			if(m >= drp->sizex) {
 				break;

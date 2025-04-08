@@ -89,7 +89,7 @@ void OffsetSetByColumn()
 		if(csrle.buf[i] == '\0') {
 			break;
 		}
-		csx += kanji_countdsp(csrle.buf[i], csrle.buf[i + 1], csrle.buf[i + 2], csx);
+		csx += kanji_countdsp(&csrle.buf[i], csx);
 		i = kanji_posnext(i, csrle.buf);
 	}
 	if(sysinfo.freecursorf) {
@@ -238,7 +238,7 @@ SHELL void op_cursor_right()
 {
 	if(sysinfo.freecursorf || GetBufferOffset() < strlen(csrle.buf)) {
 		int p = GetBufferOffset();
-		csr_setlx(p + kanji_countbuf(csrle.buf[p]));
+		csr_setlx(p + kanji_countbuf(&csrle.buf[p]));
 	} else {
 		 if(GetLineOffset() < GetLastNumber()) {
 		 	op_cursor_down();

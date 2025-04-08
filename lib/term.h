@@ -66,10 +66,9 @@ extern void term_clrtoe(int ac);
 extern void term_locate(int y, int x);
 extern void term_movex(int x);
 
-extern void term_puts(const char *s, const char *ac);
+extern int term_puts(const char *s, const char *ac);
 extern void term_putch(int c);
 extern void term_printf(const char *fmt,...);
-
 
 typedef unsigned char color_t;
 
@@ -119,6 +118,7 @@ void term_keyreport();
 int term_sizex();
 int term_sizey();
 void term_csr_flush();
-
+void term_redraw_line();
+void term_redraw_box(int sx, int sy, int width, int height);
 
 #endif	/* __TERM_H_ */

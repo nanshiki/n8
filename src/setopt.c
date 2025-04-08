@@ -345,6 +345,7 @@ void sysinfo_optset()
 	sysinfo.numberf     = hash_istrue(sysinfo.vp_def, "number");
 	sysinfo.pastemovef  = hash_istrue(sysinfo.vp_def, "pastemove");
 	sysinfo.underlinef  = hash_istrue(sysinfo.vp_def, "underline");
+	sysinfo.nfdf        = hash_istrue(sysinfo.vp_def, "nfd");
 
 	if(hash_istrue(sysinfo.vp_def, "AnsiColor")) {
 		term_color_enable();
@@ -411,6 +412,7 @@ void opt_default()
 	} else {
 		hash_set(sysinfo.vp_def, "Locale", "ja_JP.UTF-8");
 	}
+	hash_set(sysinfo.vp_def, "nfd", "true");
 
 	hash_set(sysinfo.vp_def, "col_block", "R");
 	hash_set(sysinfo.vp_def, "col_linenum", "4");

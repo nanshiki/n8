@@ -184,7 +184,7 @@ void fwc_chdir(const char *s, bool f)
 
 	reg_path(fw_c.path, path, FALSE);
 	if(dir_isdir(path)) {
-		dm_set(fw_c.path, fw_c.findex[fw_c.menu.cy+fw_c.menu.sy]->fn);
+		dm_set(fw_c.path, fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn);
 		if(uf && strcmp(fw_c.path, "/") != 0) {
 			dm_set(path, fw_c.path + strlen(path));
 		}
@@ -404,7 +404,7 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 	}
 
 	strcat(s, " ");
-	if((fwp->findex[a]->stat.st_mode & S_IFMT)==S_IFDIR) {
+	if((fwp->findex[a]->stat.st_mode & S_IFMT) == S_IFDIR) {
 		strcat(s, "<DIR>"); 
 		mip->cc = sysinfo.c_eff_dirc;
 		mip->nc = sysinfo.c_eff_dirn;
@@ -425,6 +425,10 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 void fw_make(fw_t *fwp)
 {
 	int sizex;
+
+	if(sysinfo.nfdf && fwp->menu.drp) {
+		term_redraw_box(fwp->menu.drp->x, fwp->menu.drp->y, fwp->menu.drp->sizex, term_sizey());
+	}
 
 	sizex = -1;
 
@@ -1091,7 +1095,7 @@ bool eff_filer(char *fn)
 				continue;
 			}
 		case KF_EffReRead:
-			dm_set(fw_c.path, fw_c.findex[fw_c.menu.cy+fw_c.menu.sy]->fn);
+			dm_set(fw_c.path, fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn);
 			fw_make(&fw[eff.wa]);
 			term_cls();
 			continue;

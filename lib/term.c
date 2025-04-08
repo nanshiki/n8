@@ -712,13 +712,45 @@ static int nbytes(int c)
 	return 1;
 }
 
-void term_puts(const char *s, const char *ac)
+void term_redraw_box(int sx, int sy, int width, int height)
+{
+	int w, h;
+
+	h = 0;
+	while(h < height) {
+		if(sy + h < term.sizey) {
+			w = 0;
+			while(w < width) {
+				if(sx + w < term.sizex) {
+					term.scr0[sy + h][sx + w] = 0;
+				}
+				w++;
+			}
+		}
+		h++;
+	}
+}
+
+void term_redraw_line()
+{
+	int x = 0;
+	while(x < term.sizex) {
+		term.scr0[term.y][x] = 0;
+		if(term.y < term.sizey - 1) {
+			term.scr0[term.y + 1][x] = 0;
+		}
+		x++;
+	}
+}
+
+int term_puts(const char *s, const char *ac)
 {
 	int len;
+	int redraw = FALSE;
 	long long n;
 
 	if(term.y >= term.sizey) {
-		return;
+		return FALSE;
 	}
 	if(term.x > 0 && term.scr[term.y][term.x] == SCR_ignore) {
 		fprintf(stderr, "+");
@@ -756,6 +788,10 @@ void term_puts(const char *s, const char *ac)
 						ac += 2;
 					}
 				} else {
+					// 濁点・半濁点合成文字
+					if(n == 0xe38299 || n == 0xe3829a) {
+						redraw = TRUE;
+					}
 					term.scr[term.y][term.x] = SCR_code(term.cl, n);
 					term.scr[term.y][++term.x] = SCR_ignore;
 					s += 2;
@@ -782,6 +818,7 @@ void term_puts(const char *s, const char *ac)
 	if(term.x < term.sizex && term.scr[term.y][term.x] == SCR_ignore) {
 		term.scr[term.y][term.x] = SCR_code(AC_normal, ' ');
 	}
+	return redraw;
 }
 
 void term_putch(int c)
@@ -1067,9 +1104,9 @@ static void term_all_flush()
 						++term.x;
 					}
 				}
-			 	p0[term.x] = p[term.x];
-			 	++term.x0;
-			 	++term.x;
+				p0[term.x] = p[term.x];
+				++term.x0;
+				++term.x;
 			}
 		}
 		if(cf) {
