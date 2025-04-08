@@ -29,7 +29,7 @@ int le_getcsx(le_t *lep)	// local関数
 		if(lep->buf[i] == '\0') {
 			break;
 		}
-		csx += kanji_countdsp(lep->buf[i], lep->buf[i + 1], lep->buf[i + 2], csx);
+		csx += kanji_countdsp(&lep->buf[i], csx);
 		i = kanji_posnext(i, lep->buf);
 	}
 	csx += lep->lx - i;
@@ -79,7 +79,7 @@ void le_csrleft(le_t *lep)
 void le_csrright(le_t *lep)
 {
 	if(lep->lx < strlen(lep->buf)) {
-		le_setlx(lep, lep->lx + kanji_countbuf(lep->buf[lep->lx]));
+		le_setlx(lep, lep->lx + kanji_countbuf(&lep->buf[lep->lx]));
 	}
 }
 
@@ -115,7 +115,7 @@ void le_edit(le_t *lep, int ch, int cm)
 	case DELETE:
 		if(lep->lx < strlength) {
 			p = lep->buf + lep->lx;
-			int w = kanji_countbuf(lep->buf[lep->lx]);
+			int w = kanji_countbuf(&lep->buf[lep->lx]);
 			memmove(p, p + w, strlength - lep->lx - (w - 1));
 		}
 		break;
@@ -150,8 +150,11 @@ void le_edit(le_t *lep, int ch, int cm)
 size_t le_regbuf(const char *s, char *t, char *ac)
 {
 	int n, a;
+	int width;
+	int pos = 0;
 
-	for(n = 0 ; n < MAXEDITLINE ; ++s) {
+	n = 0;
+	while(n < MAXEDITLINE) {
 		if(*s == '\0') {
 			break;
 		} else if(*s == '\t') {
@@ -162,16 +165,17 @@ size_t le_regbuf(const char *s, char *t, char *ac)
 			if(ac != NULL) {
 				ac[n] = sysinfo.tabmarkf && c != -1 ? sysinfo.c_tab : 0;
 			}
-			a = (n / sysinfo.tabstop + 1) * sysinfo.tabstop;
-			for( ; n < a ; ++n) {
+			a = (pos / sysinfo.tabstop + 1) * sysinfo.tabstop;
+			while(pos < a) {
 			 	t[n + 1] = ' ';
 				if(ac != NULL) {
 			 		ac[n + 1] = 0;
 			 	}
+			 	n++;
+			 	pos++;
 			}
-			continue;
-		}
-		if(iscnt(*s)) {
+			s++;
+		} else if(iscnt(*s)) {
 			if(ac != NULL) {
 				ac[n] = sysinfo.c_ctrl;
 			}
@@ -180,12 +184,18 @@ size_t le_regbuf(const char *s, char *t, char *ac)
 				ac[n] = sysinfo.c_ctrl;
 			}
 			t[n++] = *s + '@';
-			continue;
+			s++;
+			pos += 2;
+		} else {
+			width = kanji_countbuf(s);
+			memcpy(&t[n], s, width);
+			if(ac != NULL) {
+				memset(&ac[n], 0, width);
+			}
+			pos += kanji_countdsp(s, -1);
+			n += width;
+			s += width;
 		}
-		if(ac != NULL) {
-			ac[n] = 0;
-		}
-		t[n++] = *s;
 	}
 	t[n] = '\0';
 	return n;
