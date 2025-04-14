@@ -1709,7 +1709,7 @@ void term_escdefault()
 		keys_set("@[INS]",      "\033[2;3~", "");
 		keys_set("@[DEL]",      "\033[3;3~", "");
 
-		p = getenv("NE_TERM");
+		p = getenv("N8_TERM");
 		if(p != NULL) {
 			sprintf(buf, "term.%s", p);
 		} else {
