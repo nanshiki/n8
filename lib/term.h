@@ -42,35 +42,36 @@
 #define	__TERM_H_
 
 
-extern void term_init();
-extern void term_start();
-extern void term_stop();
+void term_init();
+void term_start();
+void term_stop();
+void term_reinit();
 
-extern char *term_getent(const char *s_id, const char *s_def);
-
-
-extern void term_kflush();		/* 入力フラッシュ */
-
-extern int term_kbhit(unsigned long usec);
-extern int term_getch();
+char *term_getent(const char *s_id, const char *s_def);
 
 
-extern void term_scroll(int n);
-extern void term_bell();
-extern void term_csrn();
-extern void term_csrh();
+void term_kflush();		/* 入力フラッシュ */
 
-extern void term_cls();
-extern void term_clrtoe(int ac);
+int term_kbhit(unsigned long usec);
+int term_getch();
 
-extern void term_locate(int y, int x);
-extern void term_movex(int x);
 
-extern int term_puts(const char *s, const char *ac);
-extern void term_putch(int c);
-extern void term_printf(const char *fmt,...);
+void term_scroll(int n);
+void term_bell();
+void term_csrn();
+void term_csrh();
 
-typedef unsigned char color_t;
+void term_cls();
+void term_clrtoe(int ac);
+
+void term_locate(int y, int x);
+void term_movex(int x);
+
+int term_puts(const char *s, const char *ac);
+void term_putch(int c);
+void term_printf(const char *fmt,...);
+
+typedef unsigned short color_t;
 
 #define AC_normal	0
 
@@ -83,28 +84,28 @@ typedef unsigned char color_t;
 #define AC_cyan		6+8
 #define AC_white	7+8
 
-#define AC_color(cl)	((cl) & 0x0f)
-#define AC_attrib(cl)	((cl) & 0xf0)
+#define AC_color(cl)	((cl) & 0x0ff)
+#define AC_attrib(cl)	((cl) & 0xf00)
 
-#define AC_reverse	0x10
-#define AC_under	0x20
-#define AC_bold		0x40
+#define AC_reverse	0x100
+#define AC_under	0x200
+#define AC_bold		0x400
 
 #define AC_ignore	255
 
 
-extern void term_color(color_t c);
-extern void term_color_normal();
+void term_color(color_t c);
+void term_color_normal();
 
-extern void term_color_reverse();
-extern void term_color_underline();
-extern void term_color_bold();
+void term_color_reverse();
+void term_color_underline();
+void term_color_bold();
 
-extern color_t term_cftocol(const char *s);
+color_t term_cftocol(const char *s);
 
 
-extern void term_color_enable();
-extern void term_color_disable();
+void term_color_enable(int color256);
+void term_color_disable();
 
 
 /* term_inkey */

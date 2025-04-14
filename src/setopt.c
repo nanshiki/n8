@@ -347,8 +347,9 @@ void sysinfo_optset()
 	sysinfo.underlinef  = hash_istrue(sysinfo.vp_def, "underline");
 	sysinfo.nfdf        = hash_istrue(sysinfo.vp_def, "nfd");
 
-	if(hash_istrue(sysinfo.vp_def, "AnsiColor")) {
-		term_color_enable();
+	f = hash_istrue(sysinfo.vp_def, "Color256");
+	if(hash_istrue(sysinfo.vp_def, "AnsiColor") || f) {
+		term_color_enable(f);
 	} else {
 		term_color_disable();
 	}

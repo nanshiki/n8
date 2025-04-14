@@ -110,6 +110,13 @@ char *UP = NULL;
 #include "generic.h"
 #include "term.h"
 
+#define TM_none 		0x00
+#define TM_keypad		0x01
+#define TM_init			0x02
+#define TM_tinit		0x04
+#define TM_ansicolor	0x08
+#define TM_color256		0x10
+
 #define LN_dispbuf	2048
 #define TERMCAPSIZE	2048
 #define TTYNAME "/dev/tty"
@@ -121,6 +128,7 @@ static void term_tputs(const char *str);
 static void term_all_flush();
 
 static int exit_failed = FALSE;
+static char term_buf[TERMCAPSIZE + 1];
 
 #ifndef TIOCSTI
 static unsigned char ungetbuf[16];
@@ -171,7 +179,8 @@ typedef struct
 	color_t cl;		/* now color */
 	color_t cl0;	/* latest color */
 
-	long long **scr, **scr0;
+	unsigned long **scr, **scr0;
+	color_t **attr, **attr0;
 
 	int *tq;
 	bool f_cls;
@@ -183,11 +192,7 @@ static term_t term;
 #define CS_normal	1
 #define CS_hide		2
 
-#define SCR_code(cl, ch)	((((long long)cl) & 0xff) << 32 | (ch))
-#define SCR_char(scr)		((scr) & 0xffffffffLL)
-#define SCR_color(scr)		(((scr) & 0xff00000000LL) >> 32)
-
-#define SCR_ignore	-1
+#define SCR_ignore	(unsigned long)-1
 
 FILE *tty_fp()
 {
@@ -302,10 +307,12 @@ void term_scroll(int n)
 	term.tq[term.y] += n;
 }
 
-static void term_scr_clr(long long *scr, int x, int ac)
+static void term_scr_clr(unsigned long *scr, color_t *attr, int x, int ac)
 {
 	while(x < term.sizex) {
-		scr[x++] = SCR_code(ac, ' ');
+		scr[x] = ' ';
+		attr[x] = ac;
+		x++;
 	}
 }
 
@@ -316,7 +323,7 @@ void term_cls()
 	term_queue_clear();
 	term.f_cls = TRUE;
 	for(i = 0 ; i < term.sizey ; ++i) {
-		term_scr_clr(term.scr[i], 0, AC_normal);
+		term_scr_clr(term.scr[i], term.attr[i], 0, AC_normal);
 	}
 }
 
@@ -326,23 +333,55 @@ static void term_scr_init()
 
 	term.scr = mem_alloc(term.sizey * sizeof (void *));
 	term.scr0 = mem_alloc(term.sizey * sizeof (void *));
+	term.attr = mem_alloc(term.sizey * sizeof (void *));
+	term.attr0 = mem_alloc(term.sizey * sizeof (void *));
 	for(i = 0 ; i < term.sizey ; ++i) {
-		term.scr[i] = mem_alloc(term.sizex * sizeof(long long));
-		term.scr0[i] = mem_alloc(term.sizex * sizeof(long long));
+		term.scr[i] = mem_alloc(term.sizex * sizeof(unsigned long));
+		term.scr0[i] = mem_alloc(term.sizex * sizeof(unsigned long));
+		term.attr[i] = mem_alloc(term.sizex * sizeof(color_t));
+		term.attr0[i] = mem_alloc(term.sizex * sizeof(color_t));
 
-		term_scr_clr(term.scr[i], 0, AC_normal);
-		term_scr_clr(term.scr0[i], 0, AC_normal);
+		term_scr_clr(term.scr[i], term.attr[i], 0, AC_normal);
+		term_scr_clr(term.scr0[i], term.attr0[i], 0, AC_normal);
 	}
 	term.f_cls = FALSE;
 	term.tq = mem_alloc(term.sizey * sizeof(int));
 	term_queue_clear();
 }
 
-#define TM_none 		0
-#define TM_keypad		1
-#define TM_init			2
-#define TM_tinit		4
-#define TM_ansicolor	8
+void term_reinit()
+{
+	int sizex, sizey;
+
+	if(tgetent(term_buf, term.name) <= 0) {
+		sizey = 24;
+		sizex = 79;
+	} else {
+		sizey = tgetnum("li");
+		sizex = tgetnum("co");
+		if(!tgetflag("am")) {
+			sizex--;
+		}
+	}
+	if(term.sizex != sizex || term.sizey != sizey) {
+		int i;
+
+		for(i = 0 ; i < term.sizey ; ++i) {
+			free(term.scr[i]);
+			free(term.scr0[i]);
+			free(term.attr[i]);
+			free(term.attr0[i]);
+		}
+		free(term.scr);
+		free(term.scr0);
+		free(term.attr);
+		free(term.attr0);
+
+		term.sizex = sizex;
+		term.sizey = sizey;
+		term_scr_init();
+	}
+}
 
 static void term_setmode(int mode)
 {
@@ -419,8 +458,6 @@ void term_start()
 
 void term_init()
 {
-	static char tbuf[TERMCAPSIZE + 1];
-
 	term.fp_tty = fopen(TTYNAME, "w+");
 	if(term.fp_tty == NULL) {
 		term.fp_tty = stdout;
@@ -431,7 +468,7 @@ void term_init()
 	if(term.name == NULL) {
 		term.name = "";
 	}
-	if(tgetent(tbuf, term.name) <= 0) {
+	if(tgetent(term_buf, term.name) <= 0) {
 		report_puts("No termcap presented.");
 		term.sizey = 24;
 		term.sizex = 79;
@@ -690,7 +727,7 @@ void term_locate(int y, int x)
 
 void term_clrtoe(int ac)
 {
-	term_scr_clr(term.scr[term.y], term.x, ac);
+	term_scr_clr(term.scr[term.y], term.attr[term.y], term.x, ac);
 }
 
 static int nbytes(int c)
@@ -747,7 +784,7 @@ int term_puts(const char *s, const char *ac)
 {
 	int len;
 	int redraw = FALSE;
-	long long n;
+	unsigned long n;
 
 	if(term.y >= term.sizey) {
 		return FALSE;
@@ -756,15 +793,17 @@ int term_puts(const char *s, const char *ac)
 		fprintf(stderr, "+");
 	}
 	if(term.x > 0 && term.scr[term.y][term.x] == SCR_ignore) {
-		term.scr[term.y][term.x - 1] = SCR_code(AC_normal, ' ');
+		term.scr[term.y][term.x - 1] = ' ';
+		term.attr[term.y][term.x - 1] = AC_normal;
 	}
 	while(*s != '\0' && term.x < term.sizex) {
 		len = nbytes(*s);
 		if(len == 1) {
+			term.scr[term.y][term.x] = *s & 0xff;
 			if(ac != NULL && *ac) {
-				term.scr[term.y][term.x] = SCR_code(AC_color(*ac) | AC_attrib(term.cl), *s & 0xff);
+				term.attr[term.y][term.x] = AC_color(*ac) | AC_attrib(term.cl);
 			} else {
-				term.scr[term.y][term.x] = SCR_code(term.cl, *s & 0xff);
+				term.attr[term.y][term.x] = term.cl;
 			}
 		} else {
 			if(term.x + len > term.sizex) {
@@ -772,8 +811,11 @@ int term_puts(const char *s, const char *ac)
 			}
 			if(len == 2) {
 				n = (*s & 0xff) << 8 | (*(s + 1) & 0xff);
-				term.scr[term.y][term.x] = SCR_code(term.cl, n);
-				term.scr[term.y][++term.x] = SCR_ignore;
+				term.scr[term.y][term.x] = n;
+				term.attr[term.y][term.x] = term.cl;
+				term.x++;
+				term.scr[term.y][term.x] = SCR_ignore;
+				term.attr[term.y][term.x] = 0;
 				s++;
 				if(ac != NULL) {
 					ac++;
@@ -782,7 +824,8 @@ int term_puts(const char *s, const char *ac)
 				n = (*s & 0xff) << 16 | (*(s + 1) & 0xff) << 8 | (*(s + 2) & 0xff);
 				if(n >= 0xefbda1 && n <= 0xefbe9f) {
 					// 半角カナ
-					term.scr[term.y][term.x] = SCR_code(term.cl, n);
+					term.scr[term.y][term.x] = n;
+					term.attr[term.y][term.x] = term.cl;
 					s += 2;
 					if(ac != NULL) {
 						ac += 2;
@@ -792,8 +835,11 @@ int term_puts(const char *s, const char *ac)
 					if(n == 0xe38299 || n == 0xe3829a) {
 						redraw = TRUE;
 					}
-					term.scr[term.y][term.x] = SCR_code(term.cl, n);
-					term.scr[term.y][++term.x] = SCR_ignore;
+					term.scr[term.y][term.x] = n;
+					term.attr[term.y][term.x] = term.cl;
+					term.x++;
+					term.scr[term.y][term.x] = SCR_ignore;
+					term.attr[term.y][term.x] = 0;
 					s += 2;
 					if(ac != NULL) {
 						ac += 2;
@@ -801,8 +847,11 @@ int term_puts(const char *s, const char *ac)
 				}
 			} else if(len == 4) {
 				n = (*s & 0xff) << 24 | (*(s + 1) & 0xff) << 16 | (*(s + 2) & 0xff) << 8 | (*(s + 3) & 0xff);
-				term.scr[term.y][term.x] = SCR_code(term.cl, n);
-				term.scr[term.y][++term.x] = SCR_ignore;
+				term.scr[term.y][term.x] = n;
+				term.attr[term.y][term.x] = term.cl;
+				term.x++;
+				term.scr[term.y][term.x] = SCR_ignore;
+				term.scr[term.y][term.x] = 0;
 				s += 3;
 				if(ac != NULL) {
 					ac += 3;
@@ -816,7 +865,8 @@ int term_puts(const char *s, const char *ac)
 		++s;
 	}
 	if(term.x < term.sizex && term.scr[term.y][term.x] == SCR_ignore) {
-		term.scr[term.y][term.x] = SCR_code(AC_normal, ' ');
+		term.scr[term.y][term.x] = ' ';
+		term.attr[term.y][term.x] = AC_normal;
 	}
 	return redraw;
 }
@@ -862,8 +912,11 @@ static void term_color_flush()
 		}
 		if(AC_color(term.cl) != AC_color(term.cl0)) {
 			char buf[20 + 1];
-
-			sprintf(buf, "\x1b[3%dm", AC_color(term.cl) - 8);
+			if(term.mode & TM_color256) {
+				sprintf(buf, "\x1b[38;5;%dm", AC_color(term.cl));
+			} else {
+				sprintf(buf, "\x1b[3%dm", AC_color(term.cl) - 8);
+			}
 			term_tputs(buf);
 		}
 	}
@@ -925,23 +978,30 @@ color_t term_cftocol(const char *s)
 			continue;
 		}
 		if(isdigit(*s)) {
-			cl |= AC_color(*s - '0' + 8);
+			if(term.mode & TM_color256) {
+				cl |= atoi(s);
+				while(isdigit(*(s + 1))) {
+					s++;
+				}
+			} else {
+				cl |= AC_color(*s - '0' + 8);
+			}
 		}
 	}
 	return cl;
 }
 
-void term_color_enable()
+void term_color_enable(int color256)
 {
-	if((term_getmode() & TM_ansicolor) == 0) {
-		term_setmode(term_getmode() | TM_ansicolor);
+	if((term_getmode() & TM_ansicolor) == 0 || (color256 && (term_getmode() & TM_color256) == 0)) {
+		term_setmode(term_getmode() | TM_ansicolor | (color256 ? TM_color256 : 0));
 	}
 }
 
 void term_color_disable()
 {
-	if((term_getmode()& TM_ansicolor) != 0) {
-		term_setmode(term_getmode() & ~TM_ansicolor);
+	if((term_getmode() & TM_ansicolor) != 0) {
+		term_setmode(term_getmode() & ~(TM_ansicolor | TM_color256));
 	}
 }
 
@@ -979,7 +1039,8 @@ static void term_all_flush()
 	bool f, cf;
 	int x;
 
-	long long *p, *p0;
+	unsigned long *p, *p0;
+	color_t *a, *a0;
 
 	if(term.f_cls) {
 		term_color_normal();
@@ -992,7 +1053,7 @@ static void term_all_flush()
 		term.y0 = 0;
 
 		for(i = 0 ; i < term.sizey ; ++i) {
-			term_scr_clr(term.scr0[i], 0, AC_normal);
+			term_scr_clr(term.scr0[i], term.attr0[i], 0, AC_normal);
 		}
 		term.f_cls = FALSE;
 	}
@@ -1004,11 +1065,14 @@ static void term_all_flush()
 			term_locate_flush();
 			term_scroll_dn(term.tq[i]);
 			while(term.tq[i] > 0) {
-				void *p;
+				void *p, *a;
 				p = term.scr0[term.sizey - 1];
+				a = term.attr0[term.sizey - 1];
 				memmove(term.scr0 + i + 1, term.scr0 + i, sizeof(void *) * (term.sizey - i - 1));
+				memmove(term.attr0 + i + 1, term.attr0 + i, sizeof(void *) * (term.sizey - i - 1));
 				term.scr0[i] = p;
-				term_scr_clr(term.scr0[i], 0, AC_normal);
+				term.attr0[i] = a;
+				term_scr_clr(term.scr0[i], term.attr0[i], 0, AC_normal);
 				--term.tq[i];
 			}
 		}
@@ -1020,11 +1084,14 @@ static void term_all_flush()
 			term_locate_flush();
 			term_scroll_up(0 - term.tq[i]);
 			while(term.tq[i] < 0) {
-				void *p;
+				void *p, *a;
 				p = term.scr0[i];
+				a = term.attr0[i];
 				memmove(term.scr0 + i, term.scr0 + i + 1, sizeof(void *) * (term.sizey - i - 1));
+				memmove(term.attr0 + i, term.attr0 + i + 1, sizeof(void *) * (term.sizey - i - 1));
 				term.scr0[term.sizey - 1] = p;
-				term_scr_clr(term.scr0[term.sizey - 1], 0, AC_normal);
+				term.attr0[term.sizey - 1] = a;
+				term_scr_clr(term.scr0[term.sizey - 1], term.attr0[term.sizey - 1], 0, AC_normal);
 				++term.tq[i];
 			}
 		}
@@ -1033,33 +1100,35 @@ static void term_all_flush()
 		term.x = 0;
 		cf = FALSE;
 		for(n = term.sizex ; n > 0 ; --n) {
-			if(term.scr[term.y][n - 1] != SCR_code(AC_normal, ' ')) {
+			if(term.scr[term.y][n - 1] != ' ' || term.attr[term.y][n - 1] != AC_normal) {
 				break;
 			}
-			if(term.scr[term.y][n - 1] != term.scr0[term.y][n - 1]) {
+			if(term.scr[term.y][n - 1] != term.scr0[term.y][n - 1] || term.attr[term.y][n - 1] != term.attr0[term.y][n - 1]) {
 				cf = TRUE;
 			}
 		}
 		p = term.scr[term.y];
 		p0 = term.scr0[term.y];
+		a = term.attr[term.y];
+		a0 = term.attr0[term.y];
 		while(term.x < n) {
 			int x;
 			f = FALSE;
 			x = term.x;
-			if((p[x] & 0xffffff00LL) != 0 || (p0[x] & 0xffffff00LL) != 0) {
-				while((p[x] & 0xffffff00LL) != 0 || (p0[x] & 0xffffff00LL) != 0) {
-					if(p[x] != p0[x]) {
+			if((p[x] & 0xffffff00UL) != 0 || (p0[x] & 0xffffff00UL) != 0) {
+				while((p[x] & 0xffffff00UL) != 0 || (p0[x] & 0xffffff00UL) != 0) {
+					if(p[x] != p0[x] || a[x] != a0[x]) {
 						f = TRUE;
 					}
 					++x;
 				}
 			} else {
-				while(x < n && (p[x] & 0xffffff00LL) == 0 && (p0[x] & 0xffffff00LL) == 0) {
-					if(!f && p[x] != p0[x]) {
+				while(x < n && (p[x] & 0xffffff00UL) == 0 && (p0[x] & 0xffffff00UL) == 0) {
+					if(!f && (p[x] != p0[x] || a[x] != a0[x])) {
 						term.x = x;
 						f = TRUE;
 					}
-					if(f && p[x] == p0[x]) {
+					if(f && p[x] == p0[x] && a[x] == a0[x]) {
 						break;
 					}
 					++x;
@@ -1074,30 +1143,31 @@ static void term_all_flush()
 			}
 			term_locate_flush();
 			while(term.x < x) {
-				long long c;
+				unsigned long c;
 
-				term_color(SCR_color(p[term.x]));
+				term_color(a[term.x]);
 				term_color_flush();
 
-				c = SCR_char(p[term.x]);
-				if((c & 0xffffff00LL) == 0) {
+				c = p[term.x];
+				if((c & 0xffffff00UL) == 0) {
 					fputc(c, term.fp_tty);
 				} else {
 					int cc;
-					cc = ((c & 0xff000000LL) >> 24) & 0xff;
+					cc = ((c & 0xff000000UL) >> 24) & 0xff;
 					if(cc != 0) {
 						fputc(cc, term.fp_tty);
 					}
-					cc = ((c & 0xff0000LL) >> 16) & 0xff;
+					cc = ((c & 0xff0000UL) >> 16) & 0xff;
 					if(cc != 0) {
 						fputc(cc, term.fp_tty);
 					}
-					cc = ((c & 0xff00LL) >> 8) & 0xff;
+					cc = ((c & 0xff00UL) >> 8) & 0xff;
 					if(cc != 0) {
 						fputc(cc, term.fp_tty);
 					}
 					fputc(c & 0xff, term.fp_tty);
 			 		p0[term.x] = p[term.x];
+			 		a0[term.x] = a[term.x];
 			 		if(c < 0xefbda1 || c > 0xefbe9f) {
 						// 半角カナ以外
 						++term.x0;
@@ -1105,6 +1175,7 @@ static void term_all_flush()
 					}
 				}
 				p0[term.x] = p[term.x];
+				a0[term.x] = a[term.x];
 				++term.x0;
 				++term.x;
 			}
@@ -1115,7 +1186,7 @@ static void term_all_flush()
 			term_color_flush();
 			term_tputs(term.l_clear);
 
-			term_scr_clr(p0, n, AC_normal);
+			term_scr_clr(p0, a0, n, AC_normal);
 		}
 	}
 	term_flush();
