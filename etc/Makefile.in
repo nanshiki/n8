@@ -12,7 +12,7 @@ INSTALL_DATA= @INSTALL_DATA@
 
 INSS=   n8rc n8rc.ele n8rc.tk \
         key.vz key.ele key.tk key.eff key.system \
-        term term.rxvt term.kterm
+        term term.rxvt term.kterm term.xterm-256color
 
 all:
 

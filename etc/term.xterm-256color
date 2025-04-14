@@ -1,0 +1,26 @@
+#
+# xterm 256 color
+#
+
+
+#  色設定
+#       0 - 255:color code
+#       B:bold U:underline R:reverse
+!R	Val
+  color256 = On
+
+  col_block     = R       #Ah ブロックモード
+  col_linenum   = 27      #Al 行番号
+
+  col_ctrl      = 27      #Ac コントロールコード
+  col_crmark    = 27      #   行末マーク
+  col_tab       = 27      #   タブマーク
+
+  col_sysmsg    = B       #   システムメッセージ
+  col_search    = 220R    #   検索文字列
+  col_menuc     = 39R     #Ai メニューのカーソル
+  col_menun     =         #   メニューの通常の文字
+  col_eff_dirc  = 220R    #   ファイラーのディレクトリにカーソルがある時
+  col_eff_dirn  = 39      #   ファイラーのディレクトリ
+  col_eff_normc = 220R    #Au ファイラーのカーソル
+  col_eff_normn =         #   ファイラーの通常の文字
