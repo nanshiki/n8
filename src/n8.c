@@ -259,6 +259,10 @@ void op_opt_linenum()
 
 void op_misc_redraw()
 {
+	term_reinit();
+	dsp_reinit();
+	system_guide_reinit();
+	eff_reinit();
 	term_cls();
 }
 

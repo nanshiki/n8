@@ -23,6 +23,7 @@ dspfmt_t *dspreg_guide(void *vp, int a, int sizex, int sizey);
 void putDoubleKey(int key);
 void delDoubleKey();
 void system_guide_init();
+void system_guide_reinit();
 void system_guide();
 dspfmt_t *dspreg_sysmsg(void *vp, int a, int sizex, int sizey);
 void system_msg(const char *buffer);

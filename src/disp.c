@@ -210,6 +210,12 @@ void dsp_regfin(dspreg_t *drp)
 	free(drp);
 }
 
+void dsp_reinit()
+{
+	dspall.sizex = term_sizex() - 1;
+	dspall.sizey = GetMaxRow() + 1;
+}
+
 void dsp_allinit()
 {
 	dspall.drp_num = 0;

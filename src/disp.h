@@ -46,5 +46,6 @@ void dsp_regrm(dspreg_t *drp);
 void dsp_regfin(dspreg_t *drp);
 void dsp_allinit();
 void dsp_allview();
+void dsp_reinit();
 
 #endif

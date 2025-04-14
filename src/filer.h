@@ -115,4 +115,5 @@ char *pval_parse(const char *s, char *t);
 bool eff_exec();
 bool eff_filer(char *fn);
 bool need_filer(const char* pszFilename);
+void eff_reinit();
 #endif

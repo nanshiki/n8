@@ -132,6 +132,13 @@ void fw_init(fw_t *fwp, const char *s, int a)
 	}
 }
 
+void eff_reinit()
+{
+	fw[0].menu.drp->sizex = term_sizex() / 2;
+	fw[1].menu.drp->sizex = term_sizex() / 2;
+	fw[1].menu.drp->x = fw[1].menu.drp->sizex;
+}
+
 void eff_init(const char *s1, const char *s2)
 {
 	eff.wa = 0;

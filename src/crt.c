@@ -341,15 +341,20 @@ void delDoubleKey()
 	*sysinfo.doublekey = '\0';
 }
 
+static dspreg_t *system_drp;
+
 void system_guide_init()
 {
-	dspreg_t *drp;
+	system_drp = dsp_reginit();
+	system_drp->sizey = 1;
+	system_drp->func = dspreg_guide;
 
-	drp = dsp_reginit();
-	drp->sizey = 1;
-	drp->func = dspreg_guide;
+	dsp_regadd(system_drp);
+}
 
-	dsp_regadd(drp);
+void system_guide_reinit()
+{
+	system_drp->sizex = term_sizex() - 1;
 }
 
 void system_guide()
