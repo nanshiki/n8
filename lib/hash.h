@@ -55,13 +55,15 @@ typedef struct
 	int max;
 } hash_t;
 
-extern hash_t *hash_init(hash_t *gvp, int m);
-extern void hash_fin(hash_t *gvp);
-extern char *hash_get(hash_t *gvp, const char *ks);
-extern void hash_set(hash_t *gvp, const char *ks, const char *vs);
-extern void hash_defset(hash_t *gvp, const char *ks, const char *vs);
-extern bool hash_istrue(hash_t *gvp, const char *ks);
-extern void hash_report(hash_t *gvp);
-extern void hash_sort(hash_t *gvp);
+hash_t *hash_init(hash_t *gvp, int m);
+void hash_fin(hash_t *gvp);
+char *hash_get(hash_t *gvp, const char *ks);
+int hash_get_int(hash_t *gvp, const char *ks);
+void hash_set(hash_t *gvp, const char *ks, const char *vs);
+void hash_set_int(hash_t *gvp, const char *ks, const int value);
+void hash_defset(hash_t *gvp, const char *ks, const char *vs);
+bool hash_istrue(hash_t *gvp, const char *ks);
+void hash_report(hash_t *gvp);
+void hash_sort(hash_t *gvp);
 
 #endif

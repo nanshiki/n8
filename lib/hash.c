@@ -74,6 +74,15 @@ char *hash_get(hash_t *gvp, const char *ks)
 	return NULL;
 }
 
+int hash_get_int(hash_t *gvp, const char *ks)
+{
+	char *pt = hash_get(gvp, ks);
+	if(pt == NULL) {
+		return -1;
+	}
+	return atoi(pt);
+}
+
 void hash_set(hash_t *gvp, const char *ks, const char *vs)
 {
 	if(ks != NULL && vs != NULL) {
@@ -91,6 +100,14 @@ void hash_set(hash_t *gvp, const char *ks, const char *vs)
 		}
 		strjncpy(p, vs, LN_val);
 	}
+}
+
+void hash_set_int(hash_t *gvp, const char *ks, const int value)
+{
+	char buff[30];
+
+	sprintf(buff, "%d", value);
+	hash_set(gvp, ks, buff);
 }
 
 void hash_defset(hash_t *gvp, const char *ks, const char *vs)
