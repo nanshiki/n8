@@ -13,12 +13,17 @@
 --------------------------------------------------------------------*/
 #include "n8.h"
 #include "list.h"
+#include "file.h"
 #include "cursor.h"
+#include <ctype.h>
 
 /*Base Pointer*/
-static EditLine Baseline[MAX_edbuf];
+static EditLine BaseLine[MAX_edbuf];
 static EditLine *LastLine[MAX_edbuf];
 static long LastOffset[MAX_edbuf];
+static HistoryData BaseHistory[HISTORY_MAX];
+static HistoryData *LastHistory[HISTORY_MAX];
+static long LastCount[HISTORY_MAX];
 
 long GetTopNumber()
 {
@@ -32,7 +37,7 @@ long GetLastNumber()
 
 EditLine *GetTop()
 {
-	return &Baseline[CurrentFileNo];
+	return &BaseLine[CurrentFileNo];
 }
 
 EditLine *GetLast()
@@ -59,10 +64,17 @@ void lists_init()
 	int i;
 
 	for(i = 0 ; i < MAX_edbuf ; ++i) {
-		Baseline[i].prev = NULL;
-		Baseline[i].next = NULL;
-		LastLine[i] = &Baseline[i];
+		BaseLine[i].prev = NULL;
+		BaseLine[i].next = NULL;
+		LastLine[i] = &BaseLine[i];
 		LastOffset[i] = 0;
+	}
+	for(i = 0 ; i < HISTORY_MAX ; ++i) {
+		BaseHistory[i].prev = NULL;
+		BaseHistory[i].next = NULL;
+		BaseHistory[i].buffer = NULL;
+		LastHistory[i] = &BaseHistory[i];
+		LastCount[i] = 0;
 	}
 }
 
@@ -70,7 +82,7 @@ void lists_clear()
 {
 	EditLine *p, *q;
 
-	p = Baseline[CurrentFileNo].next;
+	p = BaseLine[CurrentFileNo].next;
 	while(p != NULL) {
 		q = p;
 		p = p->next;
@@ -81,9 +93,9 @@ void lists_clear()
 		free(q);
 	}
 
-	Baseline[CurrentFileNo].prev = NULL;
-	Baseline[CurrentFileNo].next = NULL;
-	LastLine[CurrentFileNo] = &Baseline[CurrentFileNo];
+	BaseLine[CurrentFileNo].prev = NULL;
+	BaseLine[CurrentFileNo].next = NULL;
+	LastLine[CurrentFileNo] = &BaseLine[CurrentFileNo];
 	LastOffset[CurrentFileNo] = 0;
 
 	csrse.bytes = 0;
@@ -158,7 +170,7 @@ void DeleteList(EditLine *li)
 	}
 
 	csrse.bytes -= li->bytes;
-	li->prev->next = li-> next;
+	li->prev->next = li->next;
 	free(li->buffer);
 	free(li);
 	LastOffset[CurrentFileNo]--;
@@ -300,5 +312,178 @@ void lists_delete(int n_st, int n_ed)
 		ed = ed_next;
 	}
 	csrse.ed = ed_new;
+}
+
+long history_get_last_count(int no)
+{
+	return LastCount[no];
+}
+
+HistoryData *history_get_top(int no)
+{
+	return &BaseHistory[no];
+}
+
+HistoryData *history_get_last(int no)
+{
+	return LastHistory[no];
+}
+
+void history_append_last(int no, HistoryData *hi)
+{
+	HistoryData *last;
+
+	last = history_get_last(no);
+	last->next = hi;
+	hi->prev = last;
+	hi->next = NULL;
+	LastCount[no]++;
+	LastHistory[no] = hi;
+}
+
+void history_insert_line(int no, HistoryData *bhi, HistoryData *hi)
+{
+	if(bhi->next == NULL) {
+		history_append_last(no, hi);
+		return;
+	}
+
+	bhi->next->prev = hi;
+	hi->prev = bhi;
+	hi->next = bhi->next;
+	bhi->next = hi;
+
+	LastCount[no]++;
+}
+
+void history_delete_list(int no, HistoryData *hi)
+{
+	if(hi->next != NULL) {
+		hi->next->prev = hi->prev;
+	} else {
+		LastHistory[no] = hi->prev;
+	}
+	hi->prev->next = hi->next;
+	free(hi->buffer);
+	free(hi);
+	LastCount[no]--;
+}
+
+HistoryData *history_get_file(char *filename)
+{
+	HistoryData *hi;
+
+	hi = BaseHistory[FOPEN_SYSTEM].next;
+	while(hi != NULL) {
+		if(!strcmp(hi->buffer, filename)) {
+			return hi;
+		}
+		hi = hi->next;
+	}
+	return NULL;
+}
+
+void history_set_line(char *filename, int line)
+{
+	HistoryData *hi;
+
+	if((hi = history_get_file(filename)) != NULL) {
+		hi->line = line;
+	}
+}
+
+HistoryData *history_make_data(const char *buffer)
+{
+	HistoryData *hi;
+	int n;
+
+	hi = (HistoryData *)mem_alloc(sizeof(HistoryData));
+
+	n = strlen(buffer);
+	hi->buffer = (char *)mem_alloc(sizeof(char) * (n + 1));
+	strcpy(hi->buffer, buffer);
+	hi->line = 1;
+	hi->prev = NULL;
+	hi->next = NULL;
+
+	return hi;
+}
+
+int history_add_file(char *filename)
+{
+	HistoryData *hi;
+
+	if(*filename == '\0') {
+		return 1;
+	}
+	if((hi = history_get_file(filename)) == NULL) {
+		hi = history_make_data(filename);
+		LastCount[FOPEN_SYSTEM]++;
+	}
+	if(LastHistory[FOPEN_SYSTEM] != hi) {
+		if(hi->next != NULL) {
+			hi->next->prev = hi->prev;
+		}
+		if(hi->prev != NULL) {
+			hi->prev->next = hi->next;
+		}
+		LastHistory[FOPEN_SYSTEM]->next = hi;
+		hi->next = NULL;
+		hi->prev = LastHistory[FOPEN_SYSTEM];
+		LastHistory[FOPEN_SYSTEM] = hi;
+	}
+	return hi->line;
+}
+
+void history_save_file()
+{
+	char path[LN_path + 1];
+	FILE *fp;
+
+	sysinfo_path(path, N8_HISTORY_FILE);
+	if((fp = fopen(path, "w")) != NULL) {
+		int count = 0;
+		HistoryData *hi = LastHistory[FOPEN_SYSTEM];
+		while(hi != NULL && count < LastCount[FOPEN_SYSTEM] && count < sysinfo.file_history_count) {
+			fprintf(fp, "%s,%d\n", hi->buffer, hi->line);
+			hi = hi->prev;
+			count++;
+		}
+		fclose(fp);
+	}
+}
+
+void history_load_file()
+{
+	char path[LN_path + 1];
+	char buff[LN_path];
+	FILE *fp;
+
+	sysinfo_path(path, N8_HISTORY_FILE);
+	if((fp = fopen(path, "r")) != NULL) {
+		while(fgets(buff, LN_path, fp) != NULL) {
+			char *pt;
+			if((pt = strtok(buff, ",")) != NULL) {
+				HistoryData *hi;
+				hi = history_make_data(buff);
+				if((pt = strtok(NULL, ",")) != NULL) {
+					if(isdigit(*pt)) {
+						hi->line = atoi(pt);
+						hi->next = BaseHistory[FOPEN_SYSTEM].next;
+						if(hi->next != NULL) {
+							hi->next->prev = hi;
+						}
+						hi->prev = &BaseHistory[FOPEN_SYSTEM];
+						BaseHistory[FOPEN_SYSTEM].next = hi;
+						if(LastCount[FOPEN_SYSTEM] == 0) {
+							LastHistory[FOPEN_SYSTEM] = hi;
+						}
+						LastCount[FOPEN_SYSTEM]++;
+					}
+				}
+			}
+		}
+		fclose(fp);
+	}
 }
 

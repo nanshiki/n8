@@ -449,56 +449,35 @@ SHELL void op_char_undo()
 
 void udbuf_init()
 {
-	int tmpFileno;
-	EditLine *ed;
+	HistoryData *hi;
 
-	tmpFileno = CurrentFileNo;
-	CurrentFileNo = UNDO_SYSTEM;
-	FileStartInit(FALSE);
-	ed = MakeLine("");
-	AppendLast(ed);
-	CurrentFileNo = tmpFileno;
-
+	hi = history_make_data("");
+	history_append_last(UNDO_SYSTEM, hi);
 }
 
 void udbuf_get(char *s)
 {
-	int tmpFileno;
-	EditLine *ed;
+	HistoryData *hi;
 
-	tmpFileno = CurrentFileNo;
-	CurrentFileNo = UNDO_SYSTEM;
-
-	ed = GetLast();
-
-	strcpy(s, ed->buffer);	// buffer
+	hi = history_get_last(UNDO_SYSTEM);
+	strcpy(s, hi->buffer);	// buffer
 	if(*s != '\0') {
-		DeleteList(ed);
+		history_delete_list(UNDO_SYSTEM, hi);
 	}
-
-	CurrentFileNo = tmpFileno;
 }
 
 void udbuf_set(bool df, const char *s)
 {
-	int tmpFileno;
-	EditLine *ed;
+	HistoryData *hi;
 	char buf[MAXEDITLINE + 1];
 
-	tmpFileno = CurrentFileNo;
-	CurrentFileNo = UNDO_SYSTEM;
-
-	if(GetLastNumber() >= MAX_udbuf) {
-		DeleteList(GetTop()->next);
-		csrse.ed = NULL;
+	if(history_get_last_count(UNDO_SYSTEM) >= MAX_udbuf) {
+		history_delete_list(UNDO_SYSTEM, history_get_top(UNDO_SYSTEM)->next);
 	}
-
 	buf[0] = df ? '1' : '2';
 	strcpy(buf + 1, s);
-	ed = MakeLine(buf);
-	AppendLast(ed);
-
-	CurrentFileNo = tmpFileno;
+	hi = history_make_data(buf);
+	history_append_last(UNDO_SYSTEM, hi);
 }
 
 void undo_add(bool df, const char *s)

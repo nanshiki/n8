@@ -203,60 +203,56 @@ size_t le_regbuf(const char *s, char *t, char *ac)
 
 /* legets 処理系 */
 
-void legets_hist(le_t *lep, int hn, int hy)
+void legets_hist(le_t *lep, int hn, HistoryData **hi)
 {
-	int tmpListNo;
-	EditLine *ed;
-
-	tmpListNo = CurrentFileNo;
-	CurrentFileNo = hn;
-
-	ed = GetList(hy + 1);
 	lep->lx = 0;
 	lep->sx = 0;
 
-	if(ed == NULL || ed->buffer == NULL) { // buffer
+	if(*hi == NULL || (*hi)->buffer == NULL) { // buffer
 		*lep->buf = '\0';
 	} else {
-		strcpy(lep->buf, ed->buffer);		// buffer
+		strcpy(lep->buf, (*hi)->buffer);		// buffer
 		le_csrrightside(lep);
 	}
-
-	CurrentFileNo = tmpListNo;
-
 }
 
-bool legets_histprev(le_t *lep, int hn, int *hy)
+bool legets_histprev(le_t *lep, int hn, HistoryData **hi)
 {
-	if(hn == -1 || *hy <= 0) {
-		return FALSE;
-	}
-	--*hy;
-	legets_hist(lep, hn, *hy);
-	return TRUE;
-}
-
-bool legets_histnext(le_t *lep, int hn, int *hy)
-{
-	int tmpListNo;
-	int hym;
-
-	tmpListNo = CurrentFileNo;
-	CurrentFileNo = hn;
-	hym = GetLastNumber();
-	CurrentFileNo = tmpListNo;
+	char path[LN_path + 1];
 
 	if(hn == -1) {
 		return FALSE;
 	}
-
-	++*hy;
-	if(*hy >= hym) {
-		*hy = hym;
-		return TRUE;
+	if(hn == FOPEN_SYSTEM) {
+		strcpy(path, edbuf[CurrentFileNo].path);
 	}
+	if(*hi == NULL) {
+		*hi = history_get_last(hn);
+		legets_hist(lep, hn, hi);
+		if(hn != FOPEN_SYSTEM || strcmp(lep->buf, path)) {
+			return TRUE;
+		}
+	}
+	while(1) {
+		if((*hi)->prev == NULL || (*hi)->prev == history_get_top(hn)) {
+			return FALSE;
+		}
+		*hi = (*hi)->prev;
+		legets_hist(lep, hn, hi);
+		if(hn != FOPEN_SYSTEM || strcmp(lep->buf, path)) {
+			break;
+		}
+	}
+	return TRUE;
+}
 
-	legets_hist(lep, hn, *hy);
+bool legets_histnext(le_t *lep, int hn, HistoryData **hi)
+{
+	if(hn == -1 || *hi == NULL || (*hi)->next == NULL) {
+		return FALSE;
+	}
+	*hi = (*hi)->next;
+	legets_hist(lep, hn, hi);
 	return TRUE;
 }
 
@@ -360,12 +356,13 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 {
 	dspreg_t *drp, *path_drp;
 	le_t le;
-	int key, hy, ret;
+	int key, ret;
 	flist_t fl;
 	fitem_t *fitem;
 	char path[LN_path + 1];
 	int input_length = 0;
 	char input[LN_path + 1];
+	HistoryData *hi = NULL;
 
 	legets_lep = &le;
 	OnMessage_Flag = TRUE;
@@ -382,7 +379,6 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 	path[0] = '\0';
 	input[0] = '\0';
 	if(hn != -1) {
-		int tmpListNo;
 		if(hn == FOPEN_SYSTEM) {
 			if(CurrentFileNo == MAX_edbuf) {
 				getcwd(path, LN_path);
@@ -405,10 +401,6 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 			path_drp->vp = (void *)path;
 			dsp_regadd(path_drp);
 		}
-		tmpListNo = CurrentFileNo;
-		CurrentFileNo = hn;
-		hy = GetLastNumber();
-		CurrentFileNo = tmpListNo;
 	}
 	le.dx = get_display_length(msg);
 	le.dsize = dsize - strlen(msg) - 2;
@@ -442,22 +434,18 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 			le_csrrightside(&le);
 			continue;
 		case KF_SysCursorup:
-			legets_histprev(&le, hn, &hy);
+			legets_histprev(&le, hn, &hi);
 			continue;
 		case KF_SysCursordown:
-			legets_histnext(&le, hn, &hy);
+			legets_histnext(&le, hn, &hi);
 			continue;
 		case KF_SysReturn:
 			strcpy(s, le.buf);
-			if(hn != -1 && *s != '\0') {
-				int tmpListNo;
-				EditLine *ed;
+			if(hn != -1 && hn != FOPEN_SYSTEM && *s != '\0') {
+				HistoryData *hi;
 
-				tmpListNo = CurrentFileNo;
-				CurrentFileNo = hn;
-				ed = MakeLine(s);
-				AppendLast(ed);
-				CurrentFileNo = tmpListNo;
+				hi = history_make_data(s);
+				history_append_last(hn, hi);
 			}
 			ret = TRUE;
 			break;
