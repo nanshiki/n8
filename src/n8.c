@@ -75,6 +75,7 @@ void n8_loop(int region)
 
 void n8_fin()
 {
+	history_save_file();
 	exit(0);
 }
 
@@ -110,7 +111,7 @@ void delete_lock_file()
 {
 	char buf[LN_path + 1];
 
-	sysinfo_path(buf, "n8_lock");
+	sysinfo_path(buf, N8_LOCK_FILE);
 	unlink(buf);
 }
 
@@ -127,7 +128,7 @@ bool n8_arg(int argc, char *argv[])
 	f = FALSE;
 
 	for(optcount = 1 ; optcount < argc ; ++optcount) {
-		c = getopt(argc, argv, "jecD:");
+		c = getopt(argc, argv, "jecrD:");
 		if(c == EOF) {
 			break;
 		}
@@ -140,6 +141,16 @@ bool n8_arg(int argc, char *argv[])
 			break;
 		case 'c':
 			delete_lock_file();
+			break;
+		case 'r':
+			{
+				HistoryData *hi = history_get_last(FOPEN_SYSTEM);
+				if(hi != NULL && hi->buffer != NULL) {
+					if(FileOpenOp(hi->buffer)) {
+					 	f = TRUE;
+					}
+				}
+			}
 			break;
 		case 'D':
 			strcpy(buf, optarg);
@@ -165,6 +176,7 @@ bool n8_arg(int argc, char *argv[])
 	if(f && line > 0) {
 		int a;
 		a = min(line, GetRowWidth() / 2 + 1);
+		csr_setly(1);
 		csr_setly(line - a + 1);
 		csr_setdy(a);
 	}
@@ -197,6 +209,7 @@ int main(int argc, char *argv[])
 
 	keydef_init();
 	n8_init();
+	history_load_file();
 	open_flag = n8_arg(argc, argv);
 	key_set();
 	sysinfo_optset();

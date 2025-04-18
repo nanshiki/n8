@@ -322,17 +322,13 @@ void sysinfo_optset()
 		sysinfo.tabcode = *p;
 	}
 
-	p = hash_get(sysinfo.vp_def, "tabstop");
-	if(p != NULL) {
-		sysinfo.tabstop = atoi(p);
-		if(sysinfo.tabstop <= 0) {
-			char tmp[20 + 1];
- 
-			sysinfo.tabstop = 8;
-			sprintf(tmp, "%d", sysinfo.tabstop);
-			hash_set(sysinfo.vp_def, "tabstop", tmp);
-		}
+	sysinfo.tabstop = hash_get_int(sysinfo.vp_def, "tabstop");
+	if(sysinfo.tabstop <= 0) {
+		sysinfo.tabstop = 8;
+		hash_set_int(sysinfo.vp_def, "tabstop", sysinfo.tabstop);
 	}
+
+	sysinfo.file_history_count = hash_get_int(sysinfo.vp_def, "FileHistoryCount");
 
 	sysinfo.japanesef   = hash_istrue(sysinfo.vp_def, "Japanese");
 	sysinfo.crmarkf     = hash_istrue(sysinfo.vp_def, "crmark");
@@ -414,6 +410,7 @@ void opt_default()
 		hash_set(sysinfo.vp_def, "Locale", "ja_JP.UTF-8");
 	}
 	hash_set(sysinfo.vp_def, "nfd", "true");
+	hash_set_int(sysinfo.vp_def, "FileHistoryCount", DEFAULT_FILE_HISTORY_COUNT);
 
 	hash_set(sysinfo.vp_def, "col_block", "R");
 	hash_set(sysinfo.vp_def, "col_linenum", "4");

@@ -58,9 +58,7 @@ void edbuf_init()
 		edbuf[i].pm = FALSE;
 	}
 
-	for(CurrentFileNo = MAX_edfiles ; CurrentFileNo < MAX_edbuf ; ++CurrentFileNo) {
-		FileStartInit(FALSE);
-	}
+	CurrentFileNo = MAX_edbuf;
 }
 
 void sysinfo_path(char *s, const char *t)
@@ -82,7 +80,7 @@ bool edbuf_lock(bool func(FILE *, const char*), const char *fn)
 	int i, a;
 	bool f;
 
-	sysinfo_path(buf, "n8_lock");
+	sysinfo_path(buf, N8_LOCK_FILE);
 	fp = fopen(buf, "r+");
 	if(fp == NULL) {
 		fp = fopen(buf, "w+");
@@ -147,7 +145,7 @@ void edbuf_rm(int n)
 	char buf[LN_path + 1];
 
 	if(!edbuf_lock(edbuf_rm_func, edbuf[n].path)) {
-		sysinfo_path(buf, "n8_lock");
+		sysinfo_path(buf, N8_LOCK_FILE);
 		unlink(buf);
 	}
 	*edbuf[n].path = '\0';
@@ -400,7 +398,7 @@ int fileopen(char *filename, int kc)
 	char buf[MAXEDITLINE + 1];
 	struct stat sbuf;
 	kinfo_t ki;
-	int n, nx;
+	int n, nx, a, line;
 	bool sf;
 
 	sf = stat(filename, &sbuf);
@@ -462,6 +460,13 @@ int fileopen(char *filename, int kc)
 		}
 	}
 	csr_lenew();
+
+	line = history_add_file(filename);
+
+	a = min(line, GetRowWidth() / 2 + 1);
+	csr_setly(line - a + 1);
+	csr_setdy(a);
+
 	RefreshMessage();
 
 	return TRUE;
@@ -675,9 +680,11 @@ bool fileclose(int n)
 	if(edbuf[n].cf && !filesave(edbuf[n].path, FALSE)) {
 		return FALSE;
 	}
+	history_set_line(edbuf[n].path, edbuf[n].se.ly);
 	edbuf_rm(n);
 	lists_clear();
 	CurrentFileNo = m;
+
 	return TRUE;
 }
 
@@ -686,13 +693,16 @@ void n8_fin();
 bool exec_file_close()
 {
 	int n;
+	char path[LN_path + 1];
 
+	strcpy(path, edbuf[CurrentFileNo].path);
 	if(!fileclose(CurrentFileNo)) {
 		return FALSE;
 	}
 	if(!file_change(BackFileNo)) {
 		n = FindOutNextFile(CurrentFileNo);
 		if(n == -1 || !file_change(n)) {
+			history_add_file(path);
 			n8_fin();
 		}
 	}
@@ -720,6 +730,7 @@ SHELL void op_file_aclose()
 			return;
 		}
 	}
+	history_add_file(edbuf[CurrentFileNo].path);
 	n8_fin();
 }
 
@@ -727,6 +738,7 @@ SHELL void op_file_quit()
 {
 	int i;
 	bool res;
+	char path[LN_path + 1];
 
 	if(edbuf[CurrentFileNo].cf) {
 		res = keysel_yneq(QUIT_ARE_YOU_SURE_MSG);
@@ -734,14 +746,17 @@ SHELL void op_file_quit()
 			return;
 		}
 	}
+	strcpy(path, edbuf[CurrentFileNo].path);
 	for(i = 0 ; i < MAX_edfiles ; i++) {
 		if(*edbuf[i].path == '\0') {
 			continue;
 		}
+		history_set_line(edbuf[i].path, edbuf[i].se.ly);
 		CurrentFileNo = i;
 		edbuf_rm(i);
 		lists_clear();
 	}
+	history_add_file(path);
 	n8_fin();
 }
 

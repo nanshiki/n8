@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.03"
+#define	VER "4.04"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,15 +51,15 @@
 #include "disp.h"
 
 
-#define UNDO_SYSTEM		(0 + MAX_edfiles)
-#define SEARCHS_SYSTEM	(1 + MAX_edfiles)
-#define SYSTEM_SYSTEM	(2 + MAX_edfiles)
-#define SHELLS_SYSTEM	(3 + MAX_edfiles)
-#define FOPEN_SYSTEM	(4 + MAX_edfiles)
-#define FRENAME_SYSTEM	(5 + MAX_edfiles)
+#define FOPEN_SYSTEM	0
+#define SEARCHS_SYSTEM	1
+#define FRENAME_SYSTEM	2
+#define SHELLS_SYSTEM	3
+#define UNDO_SYSTEM		4
+#define	HISTORY_MAX		5
 
 #define MAX_edfiles		8
-#define MAX_edbuf		(MAX_edfiles + 6)
+#define MAX_edbuf		MAX_edfiles
 
 
 #define ESCAPE	(-1)
@@ -78,6 +78,10 @@
 //#define	MAXEDITLINE	1024
 #define MAXEDITLINE	2048
 #define MAXFILEMENU	512
+
+#define DEFAULT_FILE_HISTORY_COUNT	30
+#define N8_HISTORY_FILE				"n8file"
+#define N8_LOCK_FILE				"n8lock"
 
 typedef struct _ed
 {
@@ -168,6 +172,7 @@ typedef struct
 	bool pastemovef;
 	bool underlinef;
 	bool nfdf;
+	int file_history_count;
 
 	char systemline[MAXEDITLINE + 1];
 	dspreg_t *sl_drp;
@@ -222,8 +227,16 @@ typedef struct
 	block_t block;
 } edbuf_t;
 
-
 VAL edbuf_t edbuf[MAX_edbuf];
 
 #define	CNTRL(c)	((c)-'@')
+
+typedef struct _history_data
+{
+	struct _history_data *prev;
+	struct _history_data *next;
+	char *buffer;
+
+	int line;
+} HistoryData;
 
