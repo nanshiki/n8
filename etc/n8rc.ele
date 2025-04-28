@@ -1,19 +1,19 @@
 # ele's default configuration.
 
+# オプション設定
 !R	Val
   Japanese      = On      #   (on/off)表示メッセージの言語
   AutoIndent    = On      #Ei (on/off)オートインデント
   Backfile      = Off     #Eb (on/off)ファイルのバックアップ
-  FreeCursor    = Off     #En (on/off)フリーカーソル
   NoCase        = On      #   (on/off)検索文字の大文字・小文字の区別無し
   Number        = Off     #Dl (on/off)行番号を表示する
   OverWrite     = Off     #   (on/off)上書き/挿入
   TabMark       = Off     #Dt (on/off)タブ記号を ">" マークで表示する
-  PasteMove     = Off     #   (on/off)ペーストでカーソル移動
   TabStop       = 4       #Ta <number>タブストップ数を指定する
-  AnsiColor     = On      #   (on/off)ANSIエスケープシーケンスの色を使う
-  HideExt       = .o.bak  #   ファイラーやタブ補完から除外する拡張子 間にスペースは入れない事
+  PasteMove     = Off     #   (on/off)ペーストでカーソル移動
+  AnsiColor     = On      #   (on/off)ANSI エスケープシーケンスの色を使う
   UnderLine     = Off     #   (on/off)カーソル行にアンダーラインを表示する
+  Ambiguous     = 2       #   (1/2/emoji2)曖昧文字幅表示設定
 
 # キーコンフィグ
 #   /usr/local/etc/n8/ などのディレクトリに、
@@ -25,5 +25,7 @@
 !I	key.system        #system keybind
 !I	key.eff           #filer  keybind
 
+#オプション設定
+!R	Val
 
   CRMark        = ${AnsiColor}  #Dc (on/off)行末記号を表示する

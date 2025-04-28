@@ -1,13 +1,10 @@
 # takapyu's default configuration.
-#
-#
 
 # オプション設定
 !R	Val
   Japanese      = On      #   (on/off)表示メッセージの言語
   AutoIndent    = On      #Ei (on/off)オートインデント
   Backfile      = Off     #Eb (on/off)ファイルのバックアップ
-  FreeCursor    = Off #on #En (on/off)フリーカーソル
   NoCase        = On      #   (on/off)検索文字の大文字・小文字の区別無し
   Number        = Off     #Dl (on/off)行番号を表示する
   OverWrite     = Off     #   (on/off)上書き/挿入
@@ -15,8 +12,8 @@
   TabStop       = 4       #Ta <number>タブストップ数を指定する
   PasteMove     = On      #   (on/off)ペーストでカーソル移動
   AnsiColor     = On      #   (on/off)ANSI エスケープシーケンスの色を使う
-  HideExt       = .o.bak  #   ファイラーやタブ補完から除外する拡張子 間にスペースは入れない事
   UnderLine     = On      #   (on/off)カーソル行にアンダーラインを表示する
+  Ambiguous     = 2       #   (1/2/emoji2)曖昧文字幅表示設定
 
 # キーコンフィグ
 #   /usr/local/etc/n8/ などのディレクトリに、
@@ -27,7 +24,6 @@
 !I	key.tk            #editor keybind
 !I	key.system        #system keybind
 !I	key.eff           #filer  keybind
-
 
 #オプション設定
 !R	Val
