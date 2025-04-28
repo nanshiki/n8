@@ -90,16 +90,23 @@ int utf8_disp_copy(char *dst, const char *src, int count)
 	int length = 0;
 
 	while(count > 0) {
-		length++;
-		count--;
-		if((*src & 0xf0) >= 0xc0 && !is_half_kana(src)) {
+		if(!is_combining_char(src)) {
 			length++;
 			count--;
+			if((*src & 0xf0) >= 0xc0 && !is_half_kana(src) && !term_utf8_half_char(src)) {
+				length++;
+				count--;
+			}
 		}
 		width = get_utf8_width_string(src);
 		memcpy(dst, src, width);
 		dst += width;
 		src += width;
+	}
+	if(is_combining_char(src)) {
+		width = get_utf8_width_string(src);
+		memcpy(dst, src, width);
+		dst += width;
 	}
 	*dst = '\0';
 	return length;
@@ -660,9 +667,13 @@ int kanji_countdsp(const char *p, int n)
 	} else if(*p == '\t' && n != -1) {
 		return (n / sysinfo.tabstop + 1) * sysinfo.tabstop - n;
 	} else if(ch == 0xc0 || ch == 0xd0) {
-		return 1;
+		if(term_utf8_half_char(p)) {
+			return 1;
+		}
+		return 2;
 	} else if(ch == 0xe0 || ch == 0xf0) {
-		if(is_half_kana(p)) {
+		int len = 2;
+		if(is_half_kana(p) || term_utf8_half_char(p)) {
 			return 1;
 		} else if(is_combining_char(p)) {
 			return 0;
@@ -703,7 +714,9 @@ int get_display_length(const char *str)
 				// ”¼ŠpƒJƒi
 				str += 2;
 			} else {
-				length++;
+				if(!term_utf8_half_char(str)) {
+					length++;
+				}
 				str++;
 				if(((unsigned char)*str & 0x80) && ch >= 0xe0) {
 					str++;

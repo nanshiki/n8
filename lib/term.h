@@ -93,6 +93,9 @@ typedef unsigned short color_t;
 
 #define AC_ignore	255
 
+#define	AM_FIX1		0
+#define	AM_FIX2		1
+#define	AM_EMOJI2	2
 
 void term_color(color_t c);
 void term_color_normal();
@@ -121,5 +124,7 @@ int term_sizey();
 void term_csr_flush();
 void term_redraw_line();
 void term_redraw_box(int sx, int sy, int width, int height);
+void term_set_ambiguous(int mode);
+int term_utf8_half_char(const char *p);
 
 #endif	/* __TERM_H_ */

@@ -38,6 +38,8 @@
  */
 
 #include "config.h"
+#include "eaw.h"
+#include "emoji.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -184,6 +186,7 @@ typedef struct
 
 	int *tq;
 	bool f_cls;
+	int ambiguous;
 } term_t;
 
 static term_t term;
@@ -780,6 +783,74 @@ void term_redraw_line()
 	}
 }
 
+int term_utf8_half_code(unsigned long c)
+{
+	char type = 0;
+	wchar_t code;
+
+	if(c < 0x100) {
+		return TRUE;
+	} else if(c < 0x10000) {
+		code = ((c & 0x1f00) >> 2) | (c & 0x3f);
+	} else if(c < 0x1000000) {
+		code = ((c & 0xf0000) >> 4) | ((c & 0x3f00) >> 2) | (c & 0x3f);
+	} else {
+		code = ((c & 0x7000000) >> 6) | ((c & 0x3f0000) >> 4) | ((c & 0x3f00) >> 2) | (c & 0x3f);
+	}
+	if(code < 0x0080) {
+		return TRUE;
+	} else if(code <= 0x04ff) {
+		if(term.ambiguous == AM_EMOJI2) {
+			// (C) or (R)
+			if(code == 0xa9 || code == 0xae) {
+				return FALSE;
+			}
+		}
+		type = byte2_width[code - 0x0080];
+	} else if(code <= 0x1fff) {
+		return TRUE;
+	} else if(code >= 0x2000 && code <= 0x2bef) {
+		type = byte3_width[code - 0x2000];
+	} else if((code >= 0xe000 && code <= 0xf8ff) || (code >= 0xf0000 && code <= 0xffffd) || (code >= 0x100000 && code <= 0x10fffd)) {
+		// Private Use Areas
+		type = 'A';
+	}
+	if(term.ambiguous == AM_EMOJI2 && code >= 0x2000 && code <= 0x329f) {
+		wchar_t ecode = code - 0x2000;
+		if(emoji[ecode / 8] & (1 << (ecode % 8))) {
+			return FALSE;
+		}
+	}
+	if(type == 'N' || type == 'H') {
+		return TRUE;
+	} else if(type == 'A') {
+		if(term.ambiguous == AM_FIX2 || term.ambiguous == AM_EMOJI2) {
+			return FALSE;
+		} else if(term.ambiguous == AM_FIX1) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+int term_utf8_half_char(const char *p)
+{
+	const unsigned char *pu = (const unsigned char *)p;
+	unsigned long c = *pu++;
+	unsigned long ch = c & 0xf0;
+
+	if(ch >= 0xc0) {
+		c = (c << 8) | *pu++;
+		if(ch >= 0xe0) {
+			c = (c << 8) | *pu++;
+			if(ch == 0xf0) {
+				c = (c << 8) | *pu++;
+			}
+		}
+	}
+	return term_utf8_half_code(c);
+}
+
 int term_puts(const char *s, const char *ac)
 {
 	int len;
@@ -813,9 +884,11 @@ int term_puts(const char *s, const char *ac)
 				n = (*s & 0xff) << 8 | (*(s + 1) & 0xff);
 				term.scr[term.y][term.x] = n;
 				term.attr[term.y][term.x] = term.cl;
-				term.x++;
-				term.scr[term.y][term.x] = SCR_ignore;
-				term.attr[term.y][term.x] = 0;
+				if(!term_utf8_half_code(n)) {
+					term.x++;
+					term.scr[term.y][term.x] = SCR_ignore;
+					term.attr[term.y][term.x] = 0;
+				}
 				s++;
 				if(ac != NULL) {
 					ac++;
@@ -837,9 +910,11 @@ int term_puts(const char *s, const char *ac)
 					}
 					term.scr[term.y][term.x] = n;
 					term.attr[term.y][term.x] = term.cl;
-					term.x++;
-					term.scr[term.y][term.x] = SCR_ignore;
-					term.attr[term.y][term.x] = 0;
+					if(!term_utf8_half_code(n)) {
+						term.x++;
+						term.scr[term.y][term.x] = SCR_ignore;
+						term.attr[term.y][term.x] = 0;
+					}
 					s += 2;
 					if(ac != NULL) {
 						ac += 2;
@@ -1031,13 +1106,16 @@ static void term_scroll_up(int n)
 	}
 }
 
+void term_set_ambiguous(int mode)
+{
+	term.ambiguous = mode;
+}
 
 static void term_all_flush()
 {
 	int i, j;
-	int n;
+	int n, x;
 	bool f, cf;
-	int x;
 
 	unsigned long *p, *p0;
 	color_t *a, *a0;
@@ -1169,9 +1247,11 @@ static void term_all_flush()
 			 		p0[term.x] = p[term.x];
 			 		a0[term.x] = a[term.x];
 			 		if(c < 0xefbda1 || c > 0xefbe9f) {
-						// 半角カナ以外
-						++term.x0;
-						++term.x;
+						// 半角カナ以外かつ曖昧幅が 1 でない場合
+						if(!term_utf8_half_code(c)) {
+							++term.x0;
+							++term.x;
+						}
 					}
 				}
 				p0[term.x] = p[term.x];
