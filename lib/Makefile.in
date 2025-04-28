@@ -45,6 +45,6 @@ hash.o: generic.h hash.h
 regexp.o: config.h
 regexp.o: generic.h regexp.h
 term.o: config.h
-term.o: generic.h term.h
+term.o: generic.h term.h emoji.h eaw.h
 term_inkey.o: config.h
 term_inkey.o: generic.h term.h
