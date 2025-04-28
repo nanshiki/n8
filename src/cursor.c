@@ -92,9 +92,6 @@ void OffsetSetByColumn()
 		csx += kanji_countdsp(&csrle.buf[i], csx);
 		i = kanji_posnext(i, csrle.buf);
 	}
-	if(sysinfo.freecursorf) {
-		i += f_csx - csx;
-	}
 	if(csx > f_csx) {
 		i = kanji_posprev(i, csrle.buf);
 	}
@@ -236,7 +233,7 @@ SHELL void op_cursor_left()
 
 SHELL void op_cursor_right()
 {
-	if(sysinfo.freecursorf || GetBufferOffset() < strlen(csrle.buf)) {
+	if(GetBufferOffset() < strlen(csrle.buf)) {
 		int p = GetBufferOffset();
 		csr_setlx(p + kanji_countbuf(&csrle.buf[p]));
 	} else {
