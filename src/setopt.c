@@ -18,6 +18,7 @@
 #include "menu.h"
 #include "keyf.h"
 #include "keys.h"
+#include "filer.h"
 #include "../lib/term_inkey.h"
 #include "sh.h"
 #include <ctype.h>
@@ -25,7 +26,6 @@
 enum {
 	optionNumber,
 	optionOverWrite,
-	optionFreeCursor,
 	optionAutoIndent,
 	optionTabStop,
 	optionTabMark,
@@ -37,9 +37,14 @@ enum {
 	optionJapanese,
 	optionKanjiCode,
 	optionRetMode,
+	optionAmbiguous,
 
 	optionMax
 };
+
+static char *opt_kc[] = {"EUC", "JIS", "ShiftJIS", "UTF-8", "UTF-8 BOM" };
+static char *opt_rm[] = {"LF", "CRLF", "CR"};
+static char *opt_am[] = {"1", "2", "Emoji2" };
 
 extern keydef_t keydef[MAX_region][MAXKEYDEF];
 
@@ -240,75 +245,196 @@ void key_set()
 		keyf_set(2, "*",             "effMarkChangeAll");
 		keyf_set(2, "x",             "effExec");
 		keyf_set(2, "h",             "effExec");
+		keyf_set(2, "s",             "effSort");
+		keyf_set(2, "e",             "effMaskExt");
 	}
 }
 
-static void add_hide_ext(const char *str)
+void clear_string_item(int no)
 {
-	hiext_t *hiext;
+	sitem_t *item, *next;
 
-	if((hiext = (hiext_t *)malloc(sizeof(hiext_t))) != NULL) {
-		hiext->ext = strdup(str);
-		hiext->next = sysinfo.hiext;
-		sysinfo.hiext = hiext;
+	item = sysinfo.sitem[no];
+	while(item != NULL) {
+		next = item->next;
+		if(item->str != NULL) {
+			free(item->str);
+		}
+		free(item);
+		item = next;
+	}
+	sysinfo.sitem[no] = NULL;
+}
+
+char *get_string_item(int no, int pos)
+{
+	if(pos >= 0) {
+		sitem_t *item;
+
+		item = sysinfo.sitem[no];
+		while(item != NULL) {
+			if(pos == 0) {
+				return item->str;
+			}
+			pos--;
+			item = item->next;
+		}
+	}
+	return NULL;
+}
+
+int get_string_item_count(int no)
+{
+	sitem_t *item;
+	int count = 0;
+
+	item = sysinfo.sitem[no];
+	while(item != NULL) {
+		count++;
+		item = item->next;
+	}
+	return count;
+}
+
+void add_string_item(int no, const char *str)
+{
+	sitem_t *item, *last;
+
+	if((item = (sitem_t *)malloc(sizeof(sitem_t))) != NULL) {
+		item->str = strdup(str);
+		item->next = NULL;
+		if(sysinfo.sitem[no] == NULL) {
+			sysinfo.sitem[no] = item;
+		} else {
+			last = sysinfo.sitem[no];
+			while(last->next != NULL) {
+				last = last->next;
+			}
+			last->next = item;
+		}
 	}
 }
 
-static void set_hide_ext()
+void set_ext_item(int no, const char *p)
 {
-	char *p;
 	char str[MAXLINESTR + 1];
 	int length;
-	hiext_t *next;
-	hiext_t *hiext = sysinfo.hiext;
 
-	while(hiext != NULL) {
-		next = hiext->next;
-		if(hiext->ext != NULL) {
-			free(hiext->ext);
-		}
-		free(hiext);
-		hiext = next;
-	}
-	sysinfo.hiext = NULL;
-	p = hash_get(sysinfo.vp_def, "HideExt");
+	clear_string_item(no);
 	if(p != NULL) {
 		length = 0;
 		while(*p != '\0') {
 			if(*p == '.') {
 				if(length > 0) {
 					str[length] = '\0';
-					add_hide_ext(str);
+					add_string_item(no, str);
 					length = 0;
 				}
-			} else {
+			} else if(*p != ' ' && *p != '*') {
 				str[length++] = *p;
 			}
 			p++;
 		}
 		if(length > 0) {
 			str[length] = '\0';
-			add_hide_ext(str);
+			add_string_item(no, str);
 		}
 	}
 }
 
-bool check_use_ext(char *name)
+bool check_use_ext(const char *name, const char *path)
 {
+	char buff[LN_path + 1];
 	char *ext = dir_pext(name);
 
+	sprintf(buff, "%s%s", path, name);
+	if(dir_isdir(buff)) {
+		return TRUE;
+	}
 	if(ext != NULL) {
-		hiext_t *hiext = sysinfo.hiext;
-		while(hiext != NULL) {
-			if(!strcasecmp(ext, hiext->ext)) {
+		sitem_t *item = sysinfo.sitem[itemHide];
+		while(item != NULL) {
+			if(!strcasecmp(ext, item->str)) {
 				return FALSE;
 			}
-			hiext = hiext->next;
+			item = item->next;
 		}
+		if((item = sysinfo.sitem[itemUse]) != NULL) {
+			while(item != NULL) {
+				if(!strcasecmp(ext, item->str)) {
+					return TRUE;
+				}
+				item = item->next;
+			}
+			return FALSE;
+		}
+	} else if(sysinfo.sitem[itemUse] != NULL) {
+		return FALSE;
 	}
 	return TRUE;
 }
 
+void dir_init()
+{
+	char *p;
+
+	clear_string_item(itemDir);
+	add_string_item(itemDir, "0) ~ <home dir>");
+	if((p = getenv("N8_PATH")) != NULL) {
+		char str[MAXLINESTR + 1];
+		char count = '1';
+		int length;
+
+		length = 3;
+		str[0] = count++;
+		str[1] = ')';
+		str[2] = ' ';
+		while(*p != '\0') {
+			if(*p == ':') {
+				if(length > 3) {
+					str[length] = '\0';
+					add_string_item(itemDir, str);
+					str[0] = count++;
+					length = 3;
+					if(count > '9') {
+						break;
+					}
+				}
+			} else {
+				str[length++] = *p;
+			}
+			p++;
+		}
+		if(length > 3) {
+			str[length] = '\0';
+			add_string_item(itemDir, str);
+		}
+	}
+}
+
+void sort_init()
+{
+	char *p;
+
+	if((p = hash_get(sysinfo.vp_def, "sort")) != NULL) {
+		int sort = SA_none;
+
+		if(!strcasecmp(p, "file") || !strcasecmp(p, "filename")) {
+			sort = SA_fname;
+		} else if(!strcasecmp(p, "ext")) {
+			sort = SA_ext;
+		} else if(!strcasecmp(p, "new")) {
+			sort = SA_new;
+		} else if(!strcasecmp(p, "old")) {
+			sort = SA_old;
+		} else if(!strcasecmp(p, "large")) {
+			sort = SA_large;
+		} else if(!strcasecmp(p, "small")) {
+			sort = SA_small;
+		}
+		eff_set_sort(sort);
+	}
+}
 
 void sysinfo_optset()
 {
@@ -337,11 +463,19 @@ void sysinfo_optset()
 	sysinfo.autoindentf = hash_istrue(sysinfo.vp_def, "autoindent");
 	sysinfo.nocasef     = hash_istrue(sysinfo.vp_def, "nocase");
 	sysinfo.overwritef  = hash_istrue(sysinfo.vp_def, "overwrite");
-	sysinfo.freecursorf = hash_istrue(sysinfo.vp_def, "freecursor");
 	sysinfo.numberf     = hash_istrue(sysinfo.vp_def, "number");
 	sysinfo.pastemovef  = hash_istrue(sysinfo.vp_def, "pastemove");
 	sysinfo.underlinef  = hash_istrue(sysinfo.vp_def, "underline");
 	sysinfo.nfdf        = hash_istrue(sysinfo.vp_def, "nfd");
+	sysinfo.ambiguous = AM_FIX2;
+	if((p = hash_get(sysinfo.vp_def, "ambiguous")) != NULL) {
+		if(*p == '1') {
+			sysinfo.ambiguous = AM_FIX1;
+		} else if(toupper(*p) == 'E') {
+			sysinfo.ambiguous = AM_EMOJI2;
+		}
+	}
+	term_set_ambiguous(sysinfo.ambiguous);
 
 	f = hash_istrue(sysinfo.vp_def, "Color256");
 	if(hash_istrue(sysinfo.vp_def, "AnsiColor") || f) {
@@ -368,7 +502,7 @@ void sysinfo_optset()
 	sysinfo.c_eff_normc = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normc"));
 	sysinfo.c_eff_normn = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normn"));
 
-	set_hide_ext();
+	set_ext_item(itemHide, hash_get(sysinfo.vp_def, "HideExt"));
 }
 
 void opt_set(const char *s, const char *t)
@@ -410,7 +544,9 @@ void opt_default()
 		hash_set(sysinfo.vp_def, "Locale", "ja_JP.UTF-8");
 	}
 	hash_set(sysinfo.vp_def, "nfd", "true");
+	hash_set(sysinfo.vp_def, "ambiguous", "2");
 	hash_set_int(sysinfo.vp_def, "FileHistoryCount", DEFAULT_FILE_HISTORY_COUNT);
+	hash_set(sysinfo.vp_def, "sort", "filename");
 
 	hash_set(sysinfo.vp_def, "col_block", "R");
 	hash_set(sysinfo.vp_def, "col_linenum", "4");
@@ -427,18 +563,12 @@ void opt_default()
 
 void option_set_proc(int a, mitem_t *mip, void *vp)	// !!!!
 {
-	char *opt_kc[] = {"EUC", "JIS", "ShiftJIS", "UTF-8", "UTF-8 BOM" };
-	char *opt_rm[] = {"LF", "CRLF", "CR"};
-
 	switch(a) {
 	case optionNumber:
 		sprintf(mip->str, "%s%-9s", OPT_NUMBER_MSG, (hash_istrue(sysinfo.vp_def, "number") ? "ON" : "OFF"));
 		break;
 	case optionOverWrite:
 		sprintf(mip->str, "%s%-9s", OPT_INPUT_MODE_MSG, (hash_istrue(sysinfo.vp_def, "overwrite") ? "ON" : "OFF"));
-		break;
-	case optionFreeCursor:
-		sprintf(mip->str, "%s%-9s", OPT_CURSOR_MODE_MSG, (hash_istrue(sysinfo.vp_def, "freecursor") ? "ON" : "OFF"));
 		break;
 	case optionAutoIndent:
 		sprintf(mip->str, "%s%-9s", OPT_AUTOINDENT_MODE_MSG, (hash_istrue(sysinfo.vp_def, "autoindent") ? "ON" : "OFF"));
@@ -473,6 +603,9 @@ void option_set_proc(int a, mitem_t *mip, void *vp)	// !!!!
 	case optionRetMode:
 		sprintf(mip->str, "%s%-9s", "R)CR/LF                  : ", opt_rm[edbuf[CurrentFileNo].rm]);
 		break;
+	case optionAmbiguous:
+		sprintf(mip->str, "%s%-9s", OPT_AMBIGUOUS_MSG, opt_am[sysinfo.ambiguous]);
+		break;
 	}
 }
 
@@ -497,9 +630,6 @@ void SeeOption()
 			break;
 		case optionOverWrite:
 			opt_set("overwrite", NULL);
-			break;
-		case optionFreeCursor:
-			opt_set("freecursor", NULL);
 			break;
 		case optionAutoIndent:
 			opt_set("autoindent", NULL);
@@ -530,6 +660,16 @@ void SeeOption()
 			break;
 		case optionKanjiCode:
 			op_opt_kanji();
+			break;
+		case optionAmbiguous:
+			{
+				sysinfo.ambiguous++;
+				if(sysinfo.ambiguous > AM_EMOJI2) {
+					sysinfo.ambiguous = AM_FIX1;
+				}
+				hash_set(sysinfo.vp_def, "ambiguous", opt_am[sysinfo.ambiguous]);
+				sysinfo_optset();
+			}
 			break;
 		case optionRetMode:
 			op_opt_retmode();
@@ -628,7 +768,6 @@ void config_read(char *path)
 		q_chr = '\0';
 		ex_flag = FALSE;
 		p = name_buf[0];
-
 		for(;;) {
 			c = fgetc(fp);
 			if(isend(c)) {
@@ -827,7 +966,13 @@ void config_read(char *path)
 					}
 				}
 				break;
-
+			case 'm':
+				if(!strcasecmp(zone_buf, "mask")) {
+					for(i = 0 ; i < name_num ; ++i) {
+						add_string_item(itemMask, name_buf[i]);
+					}
+				}
+				break;
 			default:
 				if(name_num > 0) {
 					hash_set(sysinfo.vp_def, name_buf[0], val_buf[0]);

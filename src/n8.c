@@ -212,12 +212,14 @@ int main(int argc, char *argv[])
 	history_load_file();
 	open_flag = n8_arg(argc, argv);
 	key_set();
+	dir_init();
 	sysinfo_optset();
 
 	udbuf_init();
 	bstack_init();
 	search_init();
 	eff_init(NULL, NULL);
+	sort_init();
 	system_guide_init();
 	*sysinfo.doublekey = '\0'; // !!
 	if(!open_flag) {
