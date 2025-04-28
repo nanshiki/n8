@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.04"
+#define	VER "4.05"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -130,11 +130,20 @@ typedef struct
 #define csrle edbuf[CurrentFileNo].le
 
 //ÉVÉXÉeÉÄèÓïÒ
-typedef struct hiext
+typedef struct _sitem
 {
-	char *ext;
-	struct hiext *next;
-} hiext_t;
+	char *str;
+	struct _sitem *next;
+} sitem_t;
+
+enum {
+	itemHide,
+	itemUse,
+	itemMask,
+	itemDir,
+
+	itemMax
+};
 
 typedef struct
 {
@@ -163,7 +172,6 @@ typedef struct
 	bool tabmarkf;
 	bool autoindentf;
 	bool numberf;
-	bool freecursorf;
 	bool overwritef;
 	bool japanesef;
 
@@ -173,12 +181,13 @@ typedef struct
 	bool underlinef;
 	bool nfdf;
 	int file_history_count;
+	int ambiguous;
 
 	char systemline[MAXEDITLINE + 1];
 	dspreg_t *sl_drp;
 	char doublekey[8 + 1];
 
-	hiext_t *hiext;
+	sitem_t *sitem[itemMax];
 } sysinfo_t;
 
 VAL sysinfo_t sysinfo;
