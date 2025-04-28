@@ -51,10 +51,19 @@ typedef struct
 	int wa;			/* Window Active 位置 */
 	bool df;		/* dirty flag */
 
-	int sort[2];	/* sort方式 */
+	int sort;		/* sort方式 */
+	int open;
 } eff_t;
 
-enum { SA_none, SA_fname, SA_ext };
+enum {
+	SA_fname,
+	SA_ext,
+	SA_new,
+	SA_old,
+	SA_large,
+	SA_small,
+	SA_none
+};
 
 typedef struct fop
 {
@@ -89,6 +98,7 @@ void eff_init(const char *s1, const char *s2);
 struct stat *fw_getstat(fw_t *fwp, int a);
 fitem_t	*fw_getfi(fw_t *fwp, int a);
 void fwc_chdir(const char *s, bool f);
+void fwc_setdir(char *path);
 void fw_match(fw_t *fwp);
 fitem_t	*fitem_free(fitem_t *fip);
 void fw_free(fw_t *fwp);
@@ -111,9 +121,9 @@ void fw_move(fw_t *srcfwp, fw_t *dstfwp);
 void fw_remove(fw_t *srcfwp, fw_t *dstfwp);
 void fw_rename(fw_t *fwp);
 void fw_mkdir(fw_t *fwp);
-char *pval_parse(const char *s, char *t);
-bool eff_exec();
 bool eff_filer(char *fn);
 bool need_filer(const char* pszFilename);
 void eff_reinit();
+int eff_check_open();
+void eff_set_sort(int sort);
 #endif

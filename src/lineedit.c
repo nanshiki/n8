@@ -92,18 +92,8 @@ void le_edit(le_t *lep, int ch, int cm)
 	void *p;
 
 	strlength = strlen(lep->buf);
-	if(!sysinfo.freecursorf) {
-		 if(lep->lx > strlength) {
-		 	lep->lx = strlength;
-		}
-	} else {
-		if(strlength < lep->lx) {
-			for(i = strlength ; i < lep->lx ; ++i) {
-				lep->buf[i] = ' ';
-			}
-			lep->buf[i] = '\0';
-			strlength = i;
-		}
+	if(lep->lx > strlength) {
+	 	lep->lx = strlength;
 	}
 
 	switch(cm) {
@@ -326,7 +316,7 @@ void get_file_list(flist_t *flp, char *path, char *header)
 		if(header_length > 0 && strncasecmp(entry->d_name, header, header_length)) {
 			continue;
 		}
-		if(check_use_ext(entry->d_name)) {
+		if(check_use_ext(entry->d_name, path)) {
 			next = (fitem_t *)mem_alloc(sizeof(fitem_t));
 			next->next = NULL;
 			next->fn = strdup(entry->d_name);
@@ -410,7 +400,9 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 	le.cx = 0;
 	le.lx = 0;
 	le.l_sx = 0;
-	le_setlx(&le, strlen(s));
+	if(hn != SHELLS_SYSTEM) {
+		le_setlx(&le, strlen(s));
+	}
 
 	for(;;) {
 		dsp_allview();

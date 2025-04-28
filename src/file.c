@@ -590,6 +590,7 @@ bool exec_file_open()				/* ^[O */
 	fname[LN_path] = '\0';
 	if(need_filer(fname)) {
 		system_msg("");
+		fwc_setdir(fname);
 		eff_filer(fname);
 	}
 	if(*fname == '\0') {
@@ -614,6 +615,8 @@ bool exec_file_insert()				/* ^[I */
 	}
 	fname[LN_path] = '\0';
 	if(need_filer(fname)) {
+		system_msg("");
+		fwc_setdir(fname);
 		eff_filer(fname);
 	}
 	if(*fname == '\0') {

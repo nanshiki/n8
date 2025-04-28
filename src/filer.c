@@ -20,8 +20,26 @@
 #include <time.h>
 #include <ctype.h>
 
-fw_t fw[2];
-eff_t eff;
+static fw_t fw[2];
+static eff_t eff;
+
+#define	FILE_MENU_X		1
+#define	FILE_MENU_COUNT	7
+#define	DIR_MENU_X		7
+#define	MASK_MENU_X		12
+#define	SORT_MENU_X		24
+#define	SORT_MENU_COUNT	6
+#define	MENU_Y			1
+
+enum {
+	fileCopy,
+	fileMove,
+	fileDelete,
+	fileRename,
+	fileMkdir,
+	fileNew,
+	fileExec
+};
 
 /* ディレクトリ移動遍歴処理 */
 typedef struct
@@ -34,8 +52,8 @@ typedef struct
 
 #define MAX_dm 64
 
-dm_t dm[MAX_dm];
-int dm_num, dm_loc;
+static dm_t dm[MAX_dm];
+static int dm_num, dm_loc;
 
 void dm_init()
 {
@@ -139,12 +157,16 @@ void eff_reinit()
 	fw[1].menu.drp->x = fw[1].menu.drp->sizex;
 }
 
+void eff_set_sort(int sort)
+{
+	eff.sort = sort;
+}
+
 void eff_init(const char *s1, const char *s2)
 {
 	eff.wa = 0;
 	eff.wn = 1;
-	eff.sort[0] = SA_ext;
-	eff.sort[1] = SA_fname;
+	eff.sort = SA_none;
 
 	fw_init(&fw[0], s1, 0);
 	fw_init(&fw[1], s2, 1);
@@ -160,7 +182,7 @@ struct stat *fw_getstat(fw_t *fwp, int a)
 	return &fwp->findex[a]->stat;
 }
 
-fitem_t	*fw_getfi(fw_t *fwp, int a)
+fitem_t *fw_getfi(fw_t *fwp, int a)
 {
 	if(a == -1) {
 		a = fwp->menu.cy + fwp->menu.sy;
@@ -176,6 +198,7 @@ void fwc_chdir(const char *s, bool f)
 	if(*s == '\0') {
 		return;
 	}
+
 	if(strcmp(s, "..") == 0) {
 		uf = TRUE;
 		sprintf(path, "%.*s..", LN_path - 2, fw_c.path);
@@ -205,6 +228,15 @@ void fwc_chdir(const char *s, bool f)
 			}
 		}
 		fw_c.df = TRUE;
+	}
+}
+
+void fwc_setdir(char *path)
+{
+	reg_path(fw_c.path, path, FALSE);
+	if(dir_isdir(path)) {
+		strcpy(fw_c.path, path);
+		fw_make(&fw[eff.wa]);
 	}
 }
 
@@ -283,13 +315,13 @@ void flist_set(flist_t *flp, const char *path)
 
 	p = dir_glob(path, TRUE);
 
-	if(check_use_ext(p[0])) {
+	if(check_use_ext(p[0], path)) {
 		fitem = flp->fitem = fitem_mk(path, p[0]);
 		count++;
 	}
 	flp->n = 1;
 	while(p[flp->n] != NULL) {
-		if(check_use_ext(p[flp->n])) {
+		if(check_use_ext(p[flp->n], path)) {
 			if(fitem == NULL) {
 				fitem = flp->fitem = fitem_mk(path, p[flp->n]);
 			} else {
@@ -308,6 +340,7 @@ static int findex_comp(const void *x, const void *y)
 {
 	fitem_t *fi_x, *fi_y;
 	int i, j;
+	int sort = eff.sort;
 
 	fi_x = *(fitem_t **)x;
 	fi_y = *(fitem_t **)y;
@@ -325,31 +358,46 @@ static int findex_comp(const void *x, const void *y)
 	if((fi_x->stat.st_mode & S_IFMT) != S_IFDIR && (fi_y->stat.st_mode & S_IFMT) == S_IFDIR) {
 		return 1;
 	}
-
 	if(*fi_x->fn == '.' && *fi_y->fn != '.') {
 		return -1;
 	}
 	if(*fi_x->fn != '.' && *fi_y->fn == '.') {
 		return 1;
 	}
-
-	for (i = 0 ; i < 2 ; ++i) {
-		j = 1;
-		switch(eff.sort[i]) {
-		case SA_none:
-			return 0;
-		case SA_fname:
-			j = strcmp(fi_x->fn, fi_y->fn); //!! 厳密な判定を？
-			break;
-		case SA_ext:
-			j = strcmp(fi_x->e, fi_y->e);
-			break;
-		}
-		if(j != 0) {
-			return j;
+	if((fi_x->stat.st_mode & S_IFMT) == S_IFDIR && (fi_y->stat.st_mode & S_IFMT) == S_IFDIR) {
+		if(eff.sort == SA_large || eff.sort == SA_small) {
+			sort = SA_fname;
 		}
 	}
-	return 0;
+
+	j = 0;
+	switch(sort) {
+	case SA_none:
+		return 0;
+	case SA_fname:
+		if((j = strcmp(fi_x->fn, fi_y->fn)) == 0) {
+			j = strcmp(fi_x->e, fi_y->e);
+		}
+		break;
+	case SA_ext:
+		if((j = strcmp(fi_x->e, fi_y->e)) == 0) {
+			j = strcmp(fi_x->fn, fi_y->fn);
+		}
+		break;
+	case SA_new:
+		j = fi_y->stat.st_mtime - fi_x->stat.st_mtime;
+		break;
+	case SA_old:
+		j = fi_x->stat.st_mtime - fi_y->stat.st_mtime;
+		break;
+	case SA_large:
+		j = fi_y->stat.st_size - fi_x->stat.st_size;
+		break;
+	case SA_small:
+		j = fi_x->stat.st_size - fi_y->stat.st_size;
+		break;
+	}
+	return j;
 }
 
 
@@ -962,94 +1010,196 @@ void fw_mkdir(fw_t *fwp)
 	}
 }
 
-char *pval_parse(const char *s, char *t)
-{
-	char c;
-	char *p, com[MAXLINESTR + 1];
-
-	c = ' ';
-	p = com;
-	while(*s != '\0' && *s != c) {
-		if(*s == '(') {
-			c = ')';
-			++s;
-			continue;
-		}
-		if(*s == '{') {
-			c = '}';
-			++s;
-			continue;
-		}
-		*p++ = *s++;
-	}
-	*p = '\0';
-	if(*s != '\0') {
-		++s;
-	}
-	*t = '\0';
-	switch(*com) {
-	case 'f':
-		strcpy(t, fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn);
-		break;
-	}
-	return (char *)s;
-}
-
 void CommandCom(char *sys_buff);
 
-bool eff_exec()
+int fw_file(char *fn)
 {
-	char buf[LN_path + 1], *q;
-	const char *p;
-	bool f_input, f_dread;
+	int f = FALSE;
+	int res;
+	char fname[LN_path + 1];
+	char path[LN_path + 1];
 
-	*buf = '\0';
-	f_input = FALSE;
-	f_dread = FALSE;
-	if(keyf_numarg() > 0) {
-		p = keyf_getarg(0);
-		q = buf;
-		if(*p == '-') {
-			++p;
-			while(*p != '\0' && !isspace(*p)) {
-				switch (tolower(*p)) {
-				case 'i':
-					f_input = TRUE;
-					break;
-				case 'd':
-					f_dread = TRUE;
+	res = menu_vselect(FILE_MENU_X, MENU_Y, FILE_MENU_COUNT, FILE_COPY_MSG, FILE_MOVE_MSG, FILE_DELETE_MSG, FILE_RENAME_MSG, FILE_MKDIR_MSG, FILE_NEW_MSG, FILE_EXEC_MSG);
+	if(res != -1) {
+		switch(res) {
+		case fileCopy:
+			fw_copy(&fw[eff.wa], eff.wn == 2 ? &fw[eff.wa == 0 ? 1 : 0]: NULL);
+			break;
+		case fileMove:
+			fw_move(&fw[eff.wa], eff.wn == 2 ? &fw[eff.wa == 0 ? 1 : 0]: NULL);
+			break;
+		case fileDelete:
+			fw_remove(&fw[eff.wa],NULL);
+			break;
+		case fileRename:
+			fw_rename(&fw[eff.wa]);
+			fw_make(&fw[eff.wa]);
+			break;
+		case fileMkdir:
+			fw_mkdir(&fw[eff.wa]);
+			fw_make(&fw[eff.wa]);
+			break;
+		case fileNew:
+			fname[0] = '\0';
+			if(HisGets(fname, OPEN_MSG, -1) != NULL) {
+				fname[LN_path] = '\0';
+				if(fname[0] == '/' || fname[0] == '.') {
+					strcpy(path, fname);
+				} else if(strlen(fw_c.path) + strlen(fname) < LN_path) {
+					strcpy(path, fw_c.path);
+					strcat(path, fname);
+				} else {
 					break;
 				}
-				++p;
+				if(dir_isdir(path)) {
+					fwc_chdir(path, TRUE);
+					fw_make(&fw[eff.wa]);
+				} else {
+					strcpy(fn, path);
+					f = TRUE;
+				}
 			}
-
-			p = keyf_getarg(1);
-			if(p == NULL) {
-				p = "";
+			break;
+		case fileExec:
+			fname[0] = '\0';
+			if((fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->stat.st_mode & S_IFMT) != S_IFDIR) {
+				strcpy(fname, fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn);
 			}
-		}
-		while(*p != '\0') {
-			if(*p != '%') {
-				*q++ = *p++;
-			} else {
-				p = pval_parse(p + 1, q);
-				q += strlen(q);
+			if(HisGets(fname, GETS_SHELL_MSG, SHELLS_SYSTEM) != NULL) {
+				CommandCom(fname);
 			}
+			break;
 		}
 	}
-	if(!f_input || HisGets(buf, GETS_SHELL_MSG, SHELLS_SYSTEM) != NULL) {
-		CommandCom(buf);
-	}
-	return f_dread;
+	return f;
 }
 
+void dir_set_proc(int a, mitem_t *mip, void *vp)
+{
+	char *str;
 
+	if((str = get_string_item(itemDir, a)) != NULL) {
+		strcpy(mip->str, str);
+	} else {
+		strcpy(mip->str, "");
+	}
+}
+
+void fw_dir()
+{
+	menu_t menu;
+	char *str;
+	int count, res;
+
+	if((count = get_string_item_count(itemDir)) > 0) {
+		menu_iteminit(&menu);
+		menu.drp->x = DIR_MENU_X;
+		menu.drp->y = MENU_Y;
+		menu_itemmake(&menu, dir_set_proc, count, NULL);
+		res = menu_select(&menu);
+		menu_itemfin(&menu);
+		if((str = get_string_item(itemDir, res)) != NULL) {
+			if(*str == '0') {
+				str = "~";
+			} else {
+				str += 2;
+				while(*str == ' ') {
+					str++;
+				}
+			}
+			fwc_chdir(str, TRUE);
+			fw_make(&fw[eff.wa]);
+		}
+	}
+}
+
+void fw_sort()
+{
+	int res;
+
+	res = menu_vselect(SORT_MENU_X, MENU_Y, SORT_MENU_COUNT, SORT_FILENAME_MSG, SORT_EXT_MSG, SORT_NEW_MSG, SORT_OLD_MSG, SORT_LARGE_MSG, SORT_SMALL_MSG);
+	if(res != -1) {
+		if(eff.sort != res) {
+			eff.sort = res;
+			fw_make(&fw[eff.wa]);
+		}
+	}
+}
+
+void mask_set_proc(int a, mitem_t *mip, void *vp)
+{
+	char *str;
+
+	if((str = get_string_item(itemMask, a)) != NULL) {
+		strcpy(mip->str, str);
+	} else {
+		strcpy(mip->str, "");
+	}
+}
+
+void fw_mask()
+{
+	menu_t menu;
+	char *str;
+	int count, res;
+
+	if((count = get_string_item_count(itemMask)) > 0) {
+		menu_iteminit(&menu);
+		menu.drp->x = MASK_MENU_X;
+		menu.drp->y = MENU_Y;
+		menu_itemmake(&menu, mask_set_proc, count, NULL);
+		res = menu_select(&menu);
+		menu_itemfin(&menu);
+		if((str = get_string_item(itemMask, res)) != NULL) {
+			int len = strlen(str);
+			clear_string_item(itemUse);
+			if(len >= 2) {
+				str += 2;
+				if(strcmp(str, "*") && strcmp(str, "*.*")) {
+					set_ext_item(itemUse, str);
+				}
+			}
+			fw_make(&fw[eff.wa]);
+		}
+	}
+}
+
+void fw_change_dir()
+{
+	if(keyf_numarg() > 0) {
+		fwc_chdir(keyf_getarg(0), TRUE);
+		fw_make(&fw[eff.wa]);
+	} else {
+		char buf[LN_path + 1];
+		buf[0] = '\0';
+		if(GetS(PATH_MASK_MSG, buf)) {
+			if(buf[0] != '\0') {
+				if(dir_isdir(buf)) {
+					fwc_chdir(buf, TRUE);
+				} else {
+					clear_string_item(itemUse);
+					if(strcmp(buf, "*") && strcmp(buf, "*.*")) {
+						set_ext_item(itemUse, buf);
+					}
+				}
+				fw_make(&fw[eff.wa]);
+			}
+		}
+	}
+}
+
+int eff_check_open()
+{
+	return eff.open;
+}
 
 bool eff_filer(char *fn)
 {
 	int c;
-	char buf[LN_path + 1], *p;
+	char *p;
 	bool f;
+
+	eff.open = TRUE;
 
 	fw_make(&fw[0]);
 	fw_make(&fw[1]);
@@ -1097,22 +1247,10 @@ bool eff_filer(char *fn)
 				}
 			}
 			continue;
-		case KF_EffExec:
-			if(!eff_exec()) {
-				continue;
-			}
 		case KF_EffReRead:
 			dm_set(fw_c.path, fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn);
 			fw_make(&fw[eff.wa]);
 			term_cls();
-			continue;
-		case KF_EffRename:
-			fw_rename(&fw[eff.wa]);
-			fw_make(&fw[eff.wa]);
-			continue;
-		case KF_EffMkdir:
-			fw_mkdir(&fw[eff.wa]);
-			fw_make(&fw[eff.wa]);
 			continue;
 		case KF_EffWindowChange:
 			if(eff.wn == 2) {
@@ -1134,26 +1272,8 @@ bool eff_filer(char *fn)
 				term_cls();
 			}
 			continue;
-		case KF_EffFileCp:
-			fw_copy(&fw[eff.wa], eff.wn == 2 ? &fw[eff.wa == 0 ? 1 : 0]: NULL);
-			continue;
-		case KF_EffFileMv:
-			fw_move(&fw[eff.wa], eff.wn == 2 ? &fw[eff.wa == 0 ? 1 : 0]: NULL);
-			continue;
-		case KF_EffFileRm:
-			fw_remove(&fw[eff.wa],NULL);
-			continue;
 		case KF_EffChangeDir:
-			if(keyf_numarg() > 0) {
-				fwc_chdir(keyf_getarg(0), TRUE);
-				fw_make(&fw[eff.wa]);
-				continue;
-			}
-			*buf = '\0';
-			if(GetS(CHANGE_DIR_MSG, buf)) {
-				fwc_chdir(buf, TRUE);
-				fw_make(&fw[eff.wa]);
-			}
+			fw_change_dir();
 			continue;
 		case KF_EffReturn:
 			p = fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn;
@@ -1170,6 +1290,24 @@ bool eff_filer(char *fn)
 			dm_set(fw_c.path, fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn);
 			f = FALSE;
 			break;
+		case KF_EffFileMenu:
+			if(fw_file(fn)) {
+				break;
+			}
+			continue;
+		case KF_EffDirMenu:
+			fw_dir();
+			continue;
+		case KF_EffSortMenu:
+			fw_sort();
+			continue;
+		case KF_EffMaskMenu:
+			fw_mask();
+			continue;
+		case KF_EffMaskClear:
+			clear_string_item(itemUse);
+			fw_make(&fw[eff.wa]);
+			continue;
 		}
 		break;
 	}
@@ -1178,6 +1316,8 @@ bool eff_filer(char *fn)
 	fw_free(&fw[1]);
 	dsp_regrm(fw[0].menu.drp);
 	dsp_regrm(fw[1].menu.drp);
+
+	eff.open = FALSE;
 	return f;
 }
 

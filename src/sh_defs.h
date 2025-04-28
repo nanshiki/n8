@@ -107,20 +107,18 @@ enum {
 	 KF_EffWindowChange,
 	 KF_EffWindowNumChange,
 	 KF_EffReRead,
-	 KF_EffRename,
-	 KF_EffMkdir,
 	 KF_EffExec,
 	 KF_EffMarkChange,
 	 KF_EffMarkChangeAll,
-	 KF_EffFileCp,
-	 KF_EffFileMv,
-	 KF_EffFileRm,
 	 KF_EffBackSpace,
 	 KF_EffChangeDir,
-	 KF_EffRootDir,
-	 KF_EffHomeDir,
 	 KF_EffReturn,
-	 KF_EffEscape
+	 KF_EffEscape,
+	 KF_EffFileMenu,
+	 KF_EffSortMenu,
+	 KF_EffMaskMenu,
+	 KF_EffDirMenu,
+	 KF_EffMaskClear
 };
 
 #endif
