@@ -18,6 +18,7 @@
 #include "disp.h"
 #include "block.h"
 #include "cursor.h"
+#include "filer.h"
 #include "lineedit.h"
 #include <ctype.h>
 
@@ -167,7 +168,9 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 			if(under) {
 				term_color_underline();
 			}
-			term_puts(buf, ac);
+			if(term_puts(buf, ac) && sysinfo.nfdf) {
+				term_redraw_line();
+			}
 			ac += len;
 		}
 
@@ -178,14 +181,17 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 			p += len;
 			ac += len;
 			n += ln;
-			term_puts(buf, NULL);
-
+			if(term_puts(buf, NULL) && sysinfo.nfdf) {
+				term_redraw_line();
+			}
 			term_color_normal();
 			if(under) {
 				term_color_underline();
 			}
 		}
-		term_puts(p, ac);
+		if(term_puts(p, ac) && sysinfo.nfdf) {
+			term_redraw_line();
+		}
 
 		if(gp->bm.blkm == BLKM_x && cf && *p == '\0') {
 			 cf = FALSE;
@@ -267,6 +273,28 @@ void RefreshMessage()
 ------------------------------------------------------------------*/
 #define LN_guide 34
 
+struct {
+	char *text;
+	int attr;
+} filer_menu[] = {
+	{ " ", AC_reverse },
+	{ "F", AC_reverse | AC_bold },
+	{ "ile  ", AC_reverse },
+	{ "D", AC_reverse | AC_bold },
+	{ "ir  ", AC_reverse },
+	{ "M", AC_reverse | AC_bold },
+	{ "ask  ", AC_reverse },
+	{ "P", AC_reverse | AC_bold },
+	{ "ath  ", AC_reverse },
+	{ "S", AC_reverse | AC_bold },
+	{ "ort  ", AC_reverse },
+	{ "W", AC_reverse | AC_bold },
+	{ "indow  ", AC_reverse },
+	{ "A", AC_reverse | AC_bold },
+	{ "ll  ", AC_reverse },
+	{ NULL, 0 }
+};
+
 dspfmt_t *dspreg_guide(void *vp, int a, int sizex, int sizey)
 {
 	dspfmt_t *dfp, *dfpb;
@@ -277,57 +305,67 @@ dspfmt_t *dspreg_guide(void *vp, int a, int sizex, int sizey)
 	char kc_char[] = {'E', 'J', 'S', 'U', 'u'};
 	char rm_char[] = {'L', '+', 'C'};
 
-	if(CurrentFileNo < 0 || CurrentFileNo >= MAX_edbuf) {
-		return NULL;
-	}
-	if(sizex <= LN_guide) {
-		dfp = dsp_fmtinit("", NULL);
+	if(eff_check_open()) {
+		int no;
+		dfp = NULL;
+		for(no = 0 ; filer_menu[no].text != NULL ; no++) {
+			dfp = dsp_fmtinit(filer_menu[no].text, dfp);
+			dfp->col = filer_menu[no].attr;
+			if(no == 0) {
+				dfpb = dfp;
+			}
+		}
+	} else {
+		if(CurrentFileNo < 0 || CurrentFileNo >= MAX_edbuf) {
+			return NULL;
+		}
+		if(sizex <= LN_guide) {
+			dfp = dsp_fmtinit("", NULL);
+			dfp->col = AC_reverse;
+			return dfp;
+		}
+		if(edbuf[CurrentFileNo].pm) {
+			dfp = dsp_fmtinit("S", NULL);
+		} else {
+			dfp = dsp_fmtinit("P", NULL);
+			dfp->col = AC_reverse;
+		}
+		dfpb = dfp;
+		if(sysinfo.overwritef) {
+			dfp = dsp_fmtinit("R", dfp);
+		} else {
+			dfp = dsp_fmtinit("i", dfp);
+			dfp->col = AC_reverse;
+		}
+		if(GetBufferOffset() >= strlen(csrle.buf)) {
+			cn = 0;
+		} else {
+			get_utf8_code(&csrle.buf[GetBufferOffset()], &cn);
+		}
+		if(*sysinfo.doublekey != '\0') {
+			strcpy(tmp2, sysinfo.doublekey);
+		} else {
+			sprintf(tmp2, "%08lx", cn);
+		}
+		p = edbuf[CurrentFileNo].path;
+		length = strlen(p);
+		if(sizex - LN_guide < length) {
+			p += length - (sizex - LN_guide);
+		}
+		sprintf(tmp, " %05ld/%3ld%%:%03d[%8.8s]%6ld %2d%c%c%c%s"
+			, GetLineOffset()
+			, GetLineOffset() == 1 || GetLastNumber( ) == 0 ? 0 : GetLineOffset() * 100 / GetLastNumber()
+			, le_getcsx(&csrle)
+			, tmp2
+			, csrse.bytes + GetLastNumber() - 1
+			, CurrentFileNo + 1
+			, kc_char[edbuf[CurrentFileNo].kc]
+			, rm_char[edbuf[CurrentFileNo].rm]
+			, edbuf[CurrentFileNo].cf ? '*' : ':'
+			, p);
+		dfp = dsp_fmtinit(tmp, dfp);
 		dfp->col = AC_reverse;
-		return dfp;
 	}
-	if(edbuf[CurrentFileNo].pm) {
-		dfp = dsp_fmtinit("S", NULL);
-	} else {
-		dfp = dsp_fmtinit("P", NULL);
-		dfp->col = AC_reverse;
-	}
-	dfpb = dfp;
-	if(sysinfo.overwritef) {
-		dfp = dsp_fmtinit("R", dfp);
-	} else {
-		dfp = dsp_fmtinit("i", dfp);
-		dfp->col = AC_reverse;
-	}
-	if(GetBufferOffset() >= strlen(csrle.buf)) {
-		cn = 0;
-	} else {
-		get_utf8_code(&csrle.buf[GetBufferOffset()], &cn);
-	}
-	if(*sysinfo.doublekey != '\0') {
-		strcpy(tmp2, sysinfo.doublekey);
-	} else {
-		sprintf(tmp2, "%08lx", cn);
-	}
-	p = edbuf[CurrentFileNo].path;
-	length = strlen(p);
-	if(sizex - LN_guide < length) {
-		p += length - (sizex - LN_guide);
-	}
-	sprintf(tmp, " %05ld/%3ld%%:%03d[%8.8s]%6ld %2d%c%c%c%s"
-		, GetLineOffset()
-		, GetLineOffset() == 1 || GetLastNumber( ) == 0 ? 0 : GetLineOffset() * 100 / GetLastNumber()
-		, le_getcsx(&csrle)
-		, tmp2
-		, csrse.bytes + GetLastNumber() - 1
-		, CurrentFileNo + 1
-		, kc_char[edbuf[CurrentFileNo].kc]
-		, rm_char[edbuf[CurrentFileNo].rm]
-		, edbuf[CurrentFileNo].cf ? '*' : ':'
-		, p);
-
-	dfp = dsp_fmtinit(tmp, dfp);
-	dfp->col = AC_reverse;
-
 	return dfpb;
 }
 
