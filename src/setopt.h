@@ -14,3 +14,5 @@ void clear_string_item(int no);
 void set_ext_item(int no, const char *p);
 int get_string_item_count(int no);
 char *get_string_item(int no, int pos);
+void start_mask_reg();
+void end_mask_reg();

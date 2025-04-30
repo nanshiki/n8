@@ -22,6 +22,7 @@
 #include "../lib/term_inkey.h"
 #include "sh.h"
 #include <ctype.h>
+#include <regex.h>
 
 enum {
 	optionNumber,
@@ -317,27 +318,76 @@ void add_string_item(int no, const char *str)
 
 void set_ext_item(int no, const char *p)
 {
-	char str[MAXLINESTR + 1];
-	int length;
-
 	clear_string_item(no);
 	if(p != NULL) {
-		length = 0;
+		char str[MAXLINESTR + 1];
+		int length = 1;
+
+		str[0] = '*';
+		add_string_item(no, p);
 		while(*p != '\0') {
-			if(*p == '.') {
-				if(length > 0) {
-					str[length] = '\0';
-					add_string_item(no, str);
-					length = 0;
+			if(*p == ' ' || *(p + 1) == '\0') {
+				if(*(p + 1) == '\0') {
+					str[length++] = *p;
 				}
-			} else if(*p != ' ' && *p != '*') {
+				if(length > 1) {
+					str[length] = '\0';
+					if(str[1] == '.') {
+						add_string_item(no, str);
+					} else {
+						add_string_item(no, &str[1]);
+					}
+					length = 1;
+				}
+			} else if(length < MAXLINESTR) {
 				str[length++] = *p;
 			}
 			p++;
 		}
-		if(length > 0) {
-			str[length] = '\0';
-			add_string_item(no, str);
+	}
+}
+
+int wildcard(const char *name, const char *pattern)
+{
+	if(*pattern == '\0') {
+		return (*name == '\0');
+	} else if(*pattern == '*') {
+		return wildcard(name, pattern + 1) || (*name != '\0') && wildcard(name + 1, pattern);
+	} else if(*pattern == '?') {
+		return (*name != '\0') && wildcard(name + 1, pattern + 1);
+	}
+	return (toupper(*pattern) == toupper(*name)) && wildcard(name + 1, pattern + 1);
+}
+
+static int reg_hide_flag;
+static int reg_use_flag;
+static regex_t reg_hide;
+static regex_t reg_use;
+
+void start_mask_reg()
+{
+	if(sysinfo.maskregf) {
+		sitem_t *item;
+
+		reg_hide_flag = FALSE;
+		reg_use_flag = FALSE;
+		if((item = sysinfo.sitem[itemHide]) != NULL) {
+			reg_hide_flag = !regcomp(&reg_hide, item->str, REG_EXTENDED | REG_NOSUB | REG_NEWLINE);
+		}
+		if((item = sysinfo.sitem[itemUse]) != NULL) {
+			reg_use_flag = !regcomp(&reg_use, item->str, REG_EXTENDED | REG_NOSUB | REG_NEWLINE);
+		}
+	}
+}
+
+void end_mask_reg()
+{
+	if(sysinfo.maskregf) {
+		if(reg_hide_flag) {
+			regfree(&reg_hide);
+		}
+		if(reg_use_flag) {
+			regfree(&reg_use);
 		}
 	}
 }
@@ -345,30 +395,41 @@ void set_ext_item(int no, const char *p)
 bool check_use_ext(const char *name, const char *path)
 {
 	char buff[LN_path + 1];
-	char *ext = dir_pext(name);
 
 	sprintf(buff, "%s%s", path, name);
 	if(dir_isdir(buff)) {
 		return TRUE;
 	}
-	if(ext != NULL) {
-		sitem_t *item = sysinfo.sitem[itemHide];
-		while(item != NULL) {
-			if(!strcasecmp(ext, item->str)) {
+	sitem_t *item;
+	if((item = sysinfo.sitem[itemHide]) != NULL) {
+		if(sysinfo.maskregf) {
+			if(reg_hide_flag && !regexec(&reg_hide, name, 0, NULL, 0)) {
 				return FALSE;
 			}
+		} else {
 			item = item->next;
-		}
-		if((item = sysinfo.sitem[itemUse]) != NULL) {
 			while(item != NULL) {
-				if(!strcasecmp(ext, item->str)) {
+				if(wildcard(name, item->str)) {
+					return FALSE;
+				}
+				item = item->next;
+			}
+		}
+	}
+	if((item = sysinfo.sitem[itemUse]) != NULL) {
+		if(sysinfo.maskregf) {
+			if(reg_use_flag && !regexec(&reg_use, name, 0, NULL, 0)) {
+				return TRUE;
+			}
+		} else {
+			item = item->next;
+			while(item != NULL) {
+				if(wildcard(name, item->str)) {
 					return TRUE;
 				}
 				item = item->next;
 			}
-			return FALSE;
 		}
-	} else if(sysinfo.sitem[itemUse] != NULL) {
 		return FALSE;
 	}
 	return TRUE;
@@ -467,6 +528,7 @@ void sysinfo_optset()
 	sysinfo.pastemovef  = hash_istrue(sysinfo.vp_def, "pastemove");
 	sysinfo.underlinef  = hash_istrue(sysinfo.vp_def, "underline");
 	sysinfo.nfdf        = hash_istrue(sysinfo.vp_def, "nfd");
+	sysinfo.maskregf    = hash_istrue(sysinfo.vp_def, "maskreg");
 	sysinfo.ambiguous = AM_FIX2;
 	if((p = hash_get(sysinfo.vp_def, "ambiguous")) != NULL) {
 		if(*p == '1') {
@@ -544,6 +606,7 @@ void opt_default()
 		hash_set(sysinfo.vp_def, "Locale", "ja_JP.UTF-8");
 	}
 	hash_set(sysinfo.vp_def, "nfd", "true");
+	hash_set(sysinfo.vp_def, "maskreg", "false");
 	hash_set(sysinfo.vp_def, "ambiguous", "2");
 	hash_set_int(sysinfo.vp_def, "FileHistoryCount", DEFAULT_FILE_HISTORY_COUNT);
 	hash_set(sysinfo.vp_def, "sort", "filename");
@@ -822,8 +885,12 @@ void config_read(char *path)
 				q_chr = ')';
 				continue;
 			}
-			if(!ex_flag && c == '"') { //!!
+			if(!ex_flag && c == '"') {
 				q_chr = (q_chr == '"') ? '\0' : '"';
+				continue;
+			}
+			if(!ex_flag && c == '\'') {
+				q_chr = (q_chr == '\'') ? '\0' : '\'';
 				continue;
 			}
 

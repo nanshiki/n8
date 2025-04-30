@@ -302,6 +302,7 @@ void get_file_list(flist_t *flp, char *path, char *header)
 		return;
 	}
 
+	start_mask_reg();
 	for(;;) {
 		entry = readdir(dir);
 		if(entry == NULL) {
@@ -329,6 +330,7 @@ void get_file_list(flist_t *flp, char *path, char *header)
 			++flp->n;
 		}
 	}
+	end_mask_reg();
 	closedir(dir);
 }
 

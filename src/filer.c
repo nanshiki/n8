@@ -315,6 +315,7 @@ void flist_set(flist_t *flp, const char *path)
 
 	p = dir_glob(path, TRUE);
 
+	start_mask_reg();
 	if(check_use_ext(p[0], path)) {
 		fitem = flp->fitem = fitem_mk(path, p[0]);
 		count++;
@@ -332,6 +333,7 @@ void flist_set(flist_t *flp, const char *path)
 		}
 		++flp->n;
 	}
+	end_mask_reg();
 	free(p);
 	flp->n = count;
 }
@@ -1155,9 +1157,7 @@ void fw_mask()
 			clear_string_item(itemUse);
 			if(len >= 2) {
 				str += 2;
-				if(strcmp(str, "*") && strcmp(str, "*.*")) {
-					set_ext_item(itemUse, str);
-				}
+				set_ext_item(itemUse, str);
 			}
 			fw_make(&fw[eff.wa]);
 		}
@@ -1177,10 +1177,7 @@ void fw_change_dir()
 				if(dir_isdir(buf)) {
 					fwc_chdir(buf, TRUE);
 				} else {
-					clear_string_item(itemUse);
-					if(strcmp(buf, "*") && strcmp(buf, "*.*")) {
-						set_ext_item(itemUse, buf);
-					}
+					set_ext_item(itemUse, buf);
 				}
 				fw_make(&fw[eff.wa]);
 			}
