@@ -31,10 +31,17 @@
 !R	Val
   Sort          = file         #   (file/ext/new/old/large/small)ファイラーソート順
   HideExt       = ".o .bak"    #   ファイラーやタブ補完から除外する拡張子
+# 正規表現を使用する場合の例
+# MaskReg       = On
+# HideExt       = '\.(o|bak)$'
 
 # マスクメニュー項目
 !R	Menu:Mask
 "W)*.*"
 "C).h .c .cpp"
 "T).txt .conf"
+# 正規表現を使用する場合の例
+# "W).*"
+# 'C)\.(h|c|cpp)$'
+# 'T)\.(txt|conf)$'
 
