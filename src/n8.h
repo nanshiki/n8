@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.05"
+#define	VER "4.06"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -180,6 +180,7 @@ typedef struct
 	bool pastemovef;
 	bool underlinef;
 	bool nfdf;
+	bool maskregf;
 	int file_history_count;
 	int ambiguous;
 
