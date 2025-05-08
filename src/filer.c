@@ -144,7 +144,13 @@ void fw_init(fw_t *fwp, const char *s, int a)
 	menu_iteminit(&fwp->menu);
 	fwp->menu.title = fwp->path;
 
-	fwp->menu.drp->sizex = (fwp->menu.drp->sizex + 1) / 2;
+	fwp->menu.drp->sizex = term_sizex() / 2;
+	if(sysinfo.framechar >= frameCharFrame) {
+		fwp->menu.drp->sizex--;
+		if(sysinfo.ambiguous != AM_FIX1) {
+			fwp->menu.drp->sizex &= ~1;
+		}
+	}
 	if(a == 1) {
 		fwp->menu.drp->x += fwp->menu.drp->sizex;
 	}
@@ -152,9 +158,16 @@ void fw_init(fw_t *fwp, const char *s, int a)
 
 void eff_reinit()
 {
-	fw[0].menu.drp->sizex = term_sizex() / 2;
-	fw[1].menu.drp->sizex = term_sizex() / 2;
-	fw[1].menu.drp->x = fw[1].menu.drp->sizex;
+	int sizex = term_sizex() / 2;
+	if(sysinfo.framechar >= frameCharFrame) {
+		sizex--;
+		if(sysinfo.ambiguous != AM_FIX1) {
+			sizex &= ~1;
+		}
+	}
+	fw[0].menu.drp->sizex = sizex;
+	fw[1].menu.drp->sizex = sizex;
+	fw[1].menu.drp->x = fw[0].menu.drp->sizex;
 }
 
 void eff_set_sort(int sort)
@@ -170,7 +183,6 @@ void eff_init(const char *s1, const char *s2)
 
 	fw_init(&fw[0], s1, 0);
 	fw_init(&fw[1], s2, 1);
-
 	dm_init();
 }
 
@@ -443,7 +455,7 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 	fwp = vp;
 	s = mip->str;
 
-	strjfcpy(s, fwp->findex[a]->fn, MAXLINESTR, fwp->menu.drp->sizex - 30);
+	strjfcpy(s, fwp->findex[a]->fn, MAXLINESTR, fwp->menu.drp->sizex - ((check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) ? 32 : 30), TRUE);
 	p = fwp->findex[a]->e;
 	if(*p == '\0') {
 		strcat(s, "     ");
@@ -457,7 +469,7 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 		}
 
 		strcat(s, ".");
-		strjfcpy(s + strlen(s), p, MAXLINESTR, 4); // !MAXLINESTR
+		strjfcpy(s + strlen(s), p, MAXLINESTR, 4, TRUE);
 	}
 
 	strcat(s, " ");
@@ -587,7 +599,7 @@ static bool select_readonly(fop_t *fop)
 		return fop->pfm == FP_force;
 	}
 	system_msg(READ_ONLY_MSG);
-	res = menu_vselect(term_sizex() / 2, term_sizey() / 2
+	res = menu_vselect(NULL, term_sizex() / 2, term_sizey() / 2
 					, 4, PROCESS_MSG, NOT_PROCESS_MSG
 					, PROCESS_ALL_MSG, NOT_PROCESS_ALL_MSG);
 	RefreshMessage();
@@ -617,7 +629,7 @@ int fw_fop_file(const char *srcpath, const char *fn, struct stat *srcstp, const 
 		if(dstpath != NULL) {
 			if(stat(dstfn, &dstst) == 0 || errno != ENOENT) {
 				if(fop->om == 0) {
-					fop->om = 1 + menu_vselect(term_sizex() / 2, term_sizey() / 2, 4
+					fop->om = 1 + menu_vselect(NULL, term_sizex() / 2, term_sizey() / 2, 4
 						, OVERWRITE_ALL_MSG, NEWER_DATE_MSG
 						, SAME_NAME_NO_COPY_MSG, RENAME_AND_COPY_MSG);
 				}
@@ -635,7 +647,7 @@ int fw_fop_file(const char *srcpath, const char *fn, struct stat *srcstp, const 
 				case FO_rename:
 					fop->om = 0;
 					strcpy(tmp, fn);
-					if(GetS(NEW_NAME_MSG, tmp) == ESCAPE) {
+					if(GetS(NEW_NAME_MSG, tmp, -1) == ESCAPE) {
 						return FALSE;
 					}
 					sprintf(dstfn, "%s%s", dstpath, tmp);
@@ -656,7 +668,7 @@ int fw_fop_file(const char *srcpath, const char *fn, struct stat *srcstp, const 
 			return res;
 		}
 
-		res = menu_vselect(term_sizex() / 2, term_sizey() / 2, 3, ABORT_MSG, RETRY_MSG, CONTINUE_MSG);
+		res = menu_vselect(NULL, term_sizex() / 2, term_sizey() / 2, 3, ABORT_MSG, RETRY_MSG, CONTINUE_MSG);
 		switch(res) {
 		case -1:
 		case 0:
@@ -695,7 +707,7 @@ int fw_fop_dir(const char *srcpath, const char *fn, struct stat *srcstp, const c
 		if(res != FR_err) {
 			return res;
 		}
-		res = menu_vselect(term_sizex() / 2, term_sizey() / 2, 3, ABORT_MSG, RETRY_MSG, CONTINUE_MSG);
+		res = menu_vselect(NULL, term_sizex() / 2, term_sizey() / 2, 3, ABORT_MSG, RETRY_MSG, CONTINUE_MSG);
 		switch(res) {
 		case -1:
 		case 0:
@@ -915,25 +927,25 @@ static int  rm_proc_dir(const char *src, struct stat *srcstp, const char *dst, b
 	return FR_err;
 }
 
-bool fw_cpdest(char *s, fw_t *srcfwp, fw_t *dstfwp)
+bool fw_cpdest(char *s, fw_t *srcfwp, fw_t *dstfwp, bool move)
 {
 	char srcpath[LN_path + 1];
 
 	strcpy(srcpath, srcfwp->path);
-	reg_path(NULL, srcpath, TRUE);	// ??
+	reg_path(NULL, srcpath, TRUE);
 	if(dstfwp != NULL) {
 		strcpy(s, dstfwp->path);
 		reg_path(NULL, s, TRUE);
-		if(strcmp(srcpath, s) != 0) { // !!自分の下かどうかチェックも行う
+		if(strcmp(srcpath, s) != 0) {
 			return TRUE;
 		}
 	}
 	*s = '\0';
-	if(GetS(DESTINATION_MSG, s) == ESCAPE) {
+	if(GetS(move ? MOVE_TO_MSG : COPY_TO_MSG, s, -1) == ESCAPE) {
 		return FALSE;
 	}
 	reg_path(srcpath, s, FALSE);
-	if(strcmp(srcpath, s) == 0) { // !!自分の下かどうかチェックも行う
+	if(strcmp(srcpath, s) == 0) {
 		return FALSE;
 	}
 	return mole_dir(s);
@@ -943,7 +955,7 @@ void fw_copy(fw_t *srcfwp, fw_t *dstfwp)
 {
 	char buf[LN_path + 1];
 
-	if(!fw_cpdest(buf, srcfwp, dstfwp)) {
+	if(!fw_cpdest(buf, srcfwp, dstfwp, FALSE)) {
 		return;
 	}
 
@@ -957,7 +969,7 @@ void fw_move(fw_t *srcfwp, fw_t *dstfwp)
 {
 	char buf[LN_path + 1];
 
-	if(!fw_cpdest(buf, srcfwp, dstfwp)) {
+	if(!fw_cpdest(buf, srcfwp, dstfwp, TRUE)) {
 		return;
 	}
 
@@ -985,7 +997,7 @@ void fw_rename(fw_t *fwp)
 
 	fn = fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn;
 	strcpy(tmp, fn);
-	if(GetS(NEW_NAME_MSG, tmp) == ESCAPE) {
+	if(GetS(NEW_NAME_MSG, tmp, -1) == ESCAPE) {
 		return;
 	}
 
@@ -1002,7 +1014,7 @@ void fw_mkdir(fw_t *fwp)
 	char buf[LN_path + 1], tmp[LN_path + 1];
 
 	*tmp = '\0';
-	if(GetS(MKDIR_MSG, tmp) == ESCAPE) {
+	if(GetS(MKDIR_MSG, tmp, -1) == ESCAPE) {
 		return;
 	}
 	strcpy(buf, fwp->path);
@@ -1021,7 +1033,7 @@ int fw_file(char *fn)
 	char fname[LN_path + 1];
 	char path[LN_path + 1];
 
-	res = menu_vselect(FILE_MENU_X, MENU_Y, FILE_MENU_COUNT, FILE_COPY_MSG, FILE_MOVE_MSG, FILE_DELETE_MSG, FILE_RENAME_MSG, FILE_MKDIR_MSG, FILE_NEW_MSG, FILE_EXEC_MSG);
+	res = menu_vselect(NULL, FILE_MENU_X, MENU_Y, FILE_MENU_COUNT, FILE_COPY_MSG, FILE_MOVE_MSG, FILE_DELETE_MSG, FILE_RENAME_MSG, FILE_MKDIR_MSG, FILE_NEW_MSG, FILE_EXEC_MSG);
 	if(res != -1) {
 		switch(res) {
 		case fileCopy:
@@ -1067,7 +1079,7 @@ int fw_file(char *fn)
 			if((fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->stat.st_mode & S_IFMT) != S_IFDIR) {
 				strcpy(fname, fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn);
 			}
-			if(HisGets(fname, GETS_SHELL_MSG, SHELLS_SYSTEM) != NULL) {
+			if(HisGets(fname, GETS_SHELL_MSG, historyShell) != NULL) {
 				CommandCom(fname);
 			}
 			break;
@@ -1119,7 +1131,7 @@ void fw_sort()
 {
 	int res;
 
-	res = menu_vselect(SORT_MENU_X, MENU_Y, SORT_MENU_COUNT, SORT_FILENAME_MSG, SORT_EXT_MSG, SORT_NEW_MSG, SORT_OLD_MSG, SORT_LARGE_MSG, SORT_SMALL_MSG);
+	res = menu_vselect(NULL, SORT_MENU_X, MENU_Y, SORT_MENU_COUNT, SORT_FILENAME_MSG, SORT_EXT_MSG, SORT_NEW_MSG, SORT_OLD_MSG, SORT_LARGE_MSG, SORT_SMALL_MSG);
 	if(res != -1) {
 		if(eff.sort != res) {
 			eff.sort = res;
@@ -1172,7 +1184,7 @@ void fw_change_dir()
 	} else {
 		char buf[LN_path + 1];
 		buf[0] = '\0';
-		if(GetS(PATH_MASK_MSG, buf)) {
+		if(HisGets(buf, PATH_MASK_MSG, historyMask) != NULL) {
 			if(buf[0] != '\0') {
 				if(dir_isdir(buf)) {
 					fwc_chdir(buf, TRUE);
@@ -1182,6 +1194,7 @@ void fw_change_dir()
 				fw_make(&fw[eff.wa]);
 			}
 		}
+		CrtDrawAll();
 	}
 }
 
@@ -1305,6 +1318,15 @@ bool eff_filer(char *fn)
 			clear_string_item(itemUse);
 			fw_make(&fw[eff.wa]);
 			continue;
+		case KF_EffRedraw:
+			op_misc_redraw();
+			fw_make(&fw[0]);
+			fw_make(&fw[1]);
+			if(eff.wn == 1) {
+				fw[1].menu.df = FALSE;
+				dsp_regrm(fw[1].menu.drp);
+			}
+			continue;
 		}
 		break;
 	}
@@ -1318,25 +1340,14 @@ bool eff_filer(char *fn)
 	return f;
 }
 
-/*
-	2000/03/11 by Mia	add
-		returns if filer should be used.
-		this function is not static because this would be useful for others.
-*/
 bool need_filer(const char* pszFilename)
 {
 	if(*pszFilename == '\0') {
 		return TRUE;
 	}
-
-	/* if filename contains '*' or '?', yes.
-	   Although shell expand this characters,
-	   ESC-o doesn't.
-	*/
 	if(strchr(pszFilename, '*') != NULL || strchr(pszFilename, '?') != NULL) {
 		return TRUE ;
 	}
-	/*	if it is a directory, yes. */
 	return dir_isdir(pszFilename);
 }
 

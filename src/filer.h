@@ -115,7 +115,7 @@ int fw_fop_file(const char *srcpath, const char *fn, struct stat *srcstp, const 
 int fw_fop_dir(const char *srcpath, const char *fn, struct stat *srcstp, const char *dstpath, fop_t *fop, bool wf);
 int fw_fop_list(fitem_t **findex, size_t fi_nums, const char *srcpath, const char *dstpath, fop_t *fop);
 void fw_fop(fw_t *srcfwp, const char *dstpath, char *title, int file_func(const char *, struct stat *, const char *, fop_t *), int dir_func(const char *, struct stat *, const char *, bool, fop_t *));
-bool fw_cpdest(char *s, fw_t *srcfwp, fw_t *dstfwp);
+bool fw_cpdest(char *s, fw_t *srcfwp, fw_t *dstfwp, bool move);
 void fw_copy(fw_t *srcfwp, fw_t *dstfwp);
 void fw_move(fw_t *srcfwp, fw_t *dstfwp);
 void fw_remove(fw_t *srcfwp, fw_t *dstfwp);
