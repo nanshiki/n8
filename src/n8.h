@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.06"
+#define	VER "4.07"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,17 +50,19 @@
 #include "../lib/term.h"
 #include "disp.h"
 
+enum {
+	historyOpen,
+	historySearch,
+	historyRename,
+	historyShell,
+	historyUndo,
+	historyMask,
 
-#define FOPEN_SYSTEM	0
-#define SEARCHS_SYSTEM	1
-#define FRENAME_SYSTEM	2
-#define SHELLS_SYSTEM	3
-#define UNDO_SYSTEM		4
-#define	HISTORY_MAX		5
+	historyMax
+};
 
 #define MAX_edfiles		8
 #define MAX_edbuf		MAX_edfiles
-
 
 #define ESCAPE	(-1)
 
@@ -153,6 +155,7 @@ typedef struct
 
 	int tabstop;
 	char tabcode;
+	char zenspacechar[4];
 
 	color_t c_crmark;
 	color_t c_block;
@@ -167,6 +170,10 @@ typedef struct
 	color_t c_eff_normc;
 	color_t c_eff_normn;
 	color_t c_tab;
+	color_t c_readonly;
+	color_t c_statusbar;
+	color_t c_frame;
+	color_t c_zenspace;
 
 	bool crmarkf;	/* crmarkèàóùÇçsÇ§Ç©Ç«Ç§Ç© */
 	bool tabmarkf;
@@ -177,12 +184,20 @@ typedef struct
 
 	bool backupf;
 	bool nocasef;
+	bool searchwordf;
+	bool searchregf;
 	bool pastemovef;
 	bool underlinef;
 	bool nfdf;
 	bool maskregf;
+	bool eoff;
+	bool zenspacef;
+	bool systeminfof;
+	bool newfilef;
+
 	int file_history_count;
 	int ambiguous;
+	int framechar;
 
 	char systemline[MAXEDITLINE + 1];
 	dspreg_t *sl_drp;
@@ -191,9 +206,39 @@ typedef struct
 	sitem_t *sitem[itemMax];
 } sysinfo_t;
 
+enum {
+	frameCharNothing,
+	frameCharASCII,
+	frameCharFrame,
+	frameCharTeraTerm,
+};
+
 VAL sysinfo_t sysinfo;
 VAL int CurrentFileNo;
 VAL int BackFileNo;
+
+enum {
+	splitNone,
+	splitHorizon,
+	splitVertical
+};
+
+VAL int split_mode;
+
+enum {
+	splitLeft,
+	splitRight,
+
+	splitUpper = 0,
+	splitLower,
+
+	splitFirst = 0,
+	splitSecond,
+
+	splitHalfMax,
+};
+
+VAL int split_file_no[splitHalfMax];
 
 //csrse
 VAL int OnMessage_Flag;
@@ -224,6 +269,7 @@ typedef struct
 	char path[LN_path + 1];
 	int ct;					/* Create Time */
 	bool cf;				/* file Change Flag */
+	bool readonly;
 	int kc;					/* EUC/JIS/SJIS/UTF8 */
 	int open_kc;
 	int rm;					/* LF/CRLF/CR */
