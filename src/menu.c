@@ -66,7 +66,11 @@ void menu_itemmake(menu_t *mnp, void func(int, mitem_t *, void *), size_t nums, 
 		ln = max(ln, get_display_length(mnp->mitem[i].str));
 		++mnp->nums;
 	}
-	dsp_regresize(mnp->drp, ln + 4, min(mnp->nums + 2, dspall.sizey - 2));
+	ln += 4;
+	if(check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) {
+		ln += 2;
+	}
+	dsp_regresize(mnp->drp, ln, min(mnp->nums + 2, dspall.sizey - 2));
 	dsp_regadd(mnp->drp);
 }
 
@@ -95,7 +99,7 @@ void menu_itemmakelists(menu_t *mnp, size_t width, size_t num, char *s)
 	menu_itemmake(mnp, makelists_proc, num, &is);
 }
 
-int menu_vselect(int x, int y, size_t num, ...)
+int menu_vselect(char *title, int x, int y, size_t num, ...)
 {
 	menu_t menu;
 	va_list args;
@@ -104,8 +108,14 @@ int menu_vselect(int x, int y, size_t num, ...)
 	char *p;
 
 	menu_iteminit(&menu);
+	if(title != NULL) {
+		menu.title = title;
+	}
 	if(x != -1) {
 		menu.drp->x = x;
+	}
+	if(check_frame_ambiguous2() && (menu.drp->x & 1)) {
+		menu.drp->x--;
 	}
 	if(y != -1) {
 		menu.drp->y = y;
@@ -128,8 +138,14 @@ int menu_vselect(int x, int y, size_t num, ...)
 		ln = max(ln, get_display_length(menu.mitem[i].str));
 		++menu.nums;
 	}
-
-	dsp_regresize(menu.drp, ln + 4, min(menu.nums + 2, dspall.sizey - 2));
+	ln += 4;
+	if(check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) {
+		ln++;
+		if(ln & 1) {
+			ln++;
+		}
+	}
+	dsp_regresize(menu.drp, ln, min(menu.nums + 2, dspall.sizey - 2));
 	dsp_regadd(menu.drp);
 	va_end(args);
 
@@ -191,6 +207,100 @@ int menu_csrnext(menu_t *mnp, char c)
 	return FALSE;
 }
 
+char left_top_char[] = { (char)0xe2, 0x95 ,(char)0x94, 0x00 };
+char horizon_line_char[] = { (char)0xe2, 0x95 ,(char)0x90, 0x00 };
+char right_top_char[] = { (char)0xe2, 0x95 ,(char)0x97, 0x00 };
+char vertical_line_char[] = { (char)0xe2, 0x95 ,(char)0x91, 0x00 };
+char left_bottom_char[] = { (char)0xe2, 0x95 ,(char)0x9a, 0x00 };
+char right_bottom_char[] = { (char)0xe2, 0x95 ,(char)0x9d, 0x00 };
+
+void make_frame_top(char *buf, char *msg, int size)
+{
+	int a, w, pos;
+	int flag = FALSE;
+
+	a = min(get_display_length(msg), size - 3 - 3);
+	if(sysinfo.framechar >= frameCharFrame) {
+		strcpy(buf, left_top_char);
+		strcpy(&buf[3], horizon_line_char);
+		pos = 6;
+	} else if(sysinfo.framechar == frameCharASCII) {
+		strcpy(buf, "+-");
+		pos = 2;
+	} else {
+		strcpy(buf, "  ");
+		pos = 2;
+	}
+	if(*msg != '\0') {
+		buf[pos++] = ' ';
+		w = strjfcpy(buf + pos, msg, LN_dspbuf - pos, a, TRUE);
+		w += 5;
+		if(check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) {
+			w += 3;
+			if(w & 1) {
+				flag = TRUE;
+				w++;
+			}
+		}
+	} else {
+		w = 3;
+		if(check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) {
+			w += 4;
+		}
+	}
+	a = strlen(buf);
+	if(*msg != '\0') {
+		buf[a++] = ' ';
+		if(flag) {
+			buf[a++] = ' ';
+		}
+	}
+	while(w < size) {
+		if(sysinfo.framechar >= frameCharFrame) {
+			strcpy(&buf[a], horizon_line_char);
+			a += 3;
+			if(sysinfo.ambiguous == AM_FIX1 ||  sysinfo.framechar == frameCharTeraTerm) {
+				w++;
+			} else {
+				w += 2;
+			}
+		} else {
+			buf[a++] = (sysinfo.framechar == frameCharASCII) ? '-' : ' ';
+			w++;
+		}
+	}
+	if(sysinfo.framechar >= frameCharFrame) {
+		strcpy(&buf[a], right_top_char);
+		a += 3;
+	} else {
+		buf[a++] = (sysinfo.framechar == frameCharASCII) ? '+' : ' ';
+	}
+	buf[a] = '\0';
+}
+
+void make_frame_bottom(char *buf, int size)
+{
+	if(sysinfo.framechar >= frameCharFrame) {
+		int a = 3;
+		int c = (sysinfo.ambiguous == AM_FIX1 || sysinfo.framechar == frameCharTeraTerm) ? 2 : 4;
+		strcpy(buf, left_bottom_char);
+		while(size > c) {
+			strcpy(&buf[a], horizon_line_char);
+			a += 3;
+			size--;
+			if(sysinfo.ambiguous != AM_FIX1 && sysinfo.framechar != frameCharTeraTerm) {
+				size--;
+			}
+		}
+		strcpy(&buf[a], right_bottom_char);
+	} else {
+		*buf = (sysinfo.framechar == frameCharASCII) ? '+' : ' ';
+		memset(buf + 1, (sysinfo.framechar == frameCharASCII) ? '-' : ' ', size - 2);
+		buf[size - 1] = (sysinfo.framechar == frameCharASCII) ? '+' : ' ';
+		buf[size] = '\0';
+	}
+}
+
 dspfmt_t *dspreg_menu(void *vp, int y, int sizex, int sizey)
 {
 	int w;
@@ -201,49 +311,47 @@ dspfmt_t *dspreg_menu(void *vp, int y, int sizex, int sizey)
 	mnp = (menu_t *)vp;
 	w = sizex - 1;
 	if(y == 0) {
-		int a;
-
-		if(*mnp->title == '\0') {
-			y = sizey - 1;
-		} else {
-			a = min(get_display_length(mnp->title), sizex - 3 - 3);
-			strcpy(buf, "+- ");
-			w = strjfcpy(buf + 3, mnp->title, LN_dspbuf - 3, a) + 5;
-			a = strlen(buf);
-			buf[a++] = ' ';
-			while(w < sizex) {
-				buf[a++] = '-';
-				w++;
-			}
-			buf[a++] = '+';
-			buf[a] = '\0';
-		}
+		make_frame_top(buf, mnp->title, sizex);
 	}
 	if(y == sizey - 1) {
-		*buf = '+';
-		memset(buf + 1, '-', sizex - 2);
-		buf[sizex - 1] = '+';
-		buf[sizex] = '\0';
+		make_frame_bottom(buf, sizex);
 	}
 
 	if(y == 0 || y == sizey - 1) {
 		dfp = dsp_fmtinit(buf, NULL);
+		dfp->col = sysinfo.c_frame;
 		return dfp;
 	}
 	--y;
-	buf[0] = '|';
-	buf[1] = mnp->mitem[mnp->sy + y].mf ? '*': ' ';
-	buf[2] = '\0';
-	dfpb = dfp = dsp_fmtinit(buf, NULL);
+	if(sysinfo.framechar >= frameCharFrame) {
+		strcpy(buf, vertical_line_char);
+		dfp = dsp_fmtinit(buf, NULL);
+	} else {
+		dfp = dsp_fmtinit((sysinfo.framechar == frameCharASCII) ? "|" : " ", NULL);
+	}
+	dfpb = dfp;
+	dfp->col = sysinfo.c_frame;
 
-	strjfcpy(buf, mnp->mitem[mnp->sy + y].str, LN_dspbuf, sizex - 4);
+	dfp = dsp_fmtinit(mnp->mitem[mnp->sy + y].mf ? "*" : " ", dfp);
+	if(mnp->cy == y && !mnp->df) {
+		dfp->col = mnp->mitem[mnp->sy + y].cc;
+	} else {
+		dfp->col = mnp->mitem[mnp->sy + y].nc;
+	}
+	strjfcpy(buf, mnp->mitem[mnp->sy + y].str, LN_dspbuf, sizex - ((check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) ? 5 : 3), TRUE);
 	dfp = dsp_fmtinit(buf, dfp);
 	if(mnp->cy == y && !mnp->df) {
 		dfp->col = mnp->mitem[mnp->sy + y].cc;
 	} else {
 		dfp->col = mnp->mitem[mnp->sy + y].nc;
 	}
-	dfp = dsp_fmtinit(" |", dfp);
+	if(sysinfo.framechar >= frameCharFrame) {
+		strcpy(buf, vertical_line_char);
+		dfp = dsp_fmtinit(buf, dfp);
+	} else {
+		dfp = dsp_fmtinit((sysinfo.framechar == frameCharASCII) ? "|" : " ", dfp);
+	}
+	dfp->col = sysinfo.c_frame;
 	return dfpb;
 }
 

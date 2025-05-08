@@ -33,7 +33,10 @@ void menu_view(menu_t *mnp);
 void menu_csrmove(menu_t *mnp, int ly);
 int menu_csrnext(menu_t *mnp, char c);
 int menu_select(menu_t *mnp);
-int menu_vselect(int x, int y, size_t num, ...);
+int menu_vselect(char *title, int x, int y, size_t num, ...);
 dspreg_t *menu_regset(menu_t *mnp);
+
+void make_frame_top(char *buf, char *msg, int size);
+void make_frame_bottom(char *buf, int size);
 
 #endif
