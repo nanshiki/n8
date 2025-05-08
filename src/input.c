@@ -57,12 +57,36 @@ void InputAndCrt(unsigned long key)
 	csr_movehook();
 }
 
-char *HisGets(char *dest, const char *message, int listID)
+#define	INPUT_BOX_WIDTH_MIN		40
+#define	INPUT_BOX_WIDTH_MAX		60
+
+int input_box_width()
 {
-	return legets_gets(message, dest, GetColWidth(), MAXLINESTR, listID) == ESCAPE ? NULL : dest;
+	int width = GetColWidth() / 2;
+	if(width > INPUT_BOX_WIDTH_MAX) {
+		width = INPUT_BOX_WIDTH_MAX;
+	} else if(width < INPUT_BOX_WIDTH_MIN) {
+		width = INPUT_BOX_WIDTH_MIN;
+	}
+	return width;
 }
 
-int GetS(const char *message, char *buffer)
+char *HisGets(char *dest, const char *message, int listID)
 {
-	return legets_gets(message, buffer, GetColWidth(), MAXLINESTR, -1);
+	int width = input_box_width();
+	if(sysinfo.ambiguous != AM_FIX1 && (width & 1) == 0) {
+		width++;
+	}
+	return legets_gets(message, dest, width, MAXLINESTR, listID) == ESCAPE ? NULL : dest;
+}
+
+int GetS(const char *message, char *buffer, int width)
+{
+	if(width == -1) {
+		width = input_box_width();
+	}
+	if(sysinfo.ambiguous != AM_FIX1 && (width & 1) == 0) {
+		width++;
+	}
+	return legets_gets(message, buffer, width, MAXLINESTR, -1);
 }

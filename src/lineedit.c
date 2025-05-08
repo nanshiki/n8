@@ -14,6 +14,8 @@
 #include "keyf.h"
 #include "filer.h"
 #include "setopt.h"
+#include "search.h"
+#include "cursor.h"
 #include "sh.h"
 #include <dirent.h>
 #include <ctype.h>
@@ -178,9 +180,16 @@ size_t le_regbuf(const char *s, char *t, char *ac)
 			pos += 2;
 		} else {
 			width = kanji_countbuf(s);
-			memcpy(&t[n], s, width);
-			if(ac != NULL) {
-				memset(&ac[n], 0, width);
+			if(is_zen_space(s)) {
+				memcpy(&t[n], sysinfo.zenspacechar, width);
+				if(ac != NULL) {
+					ac[n] = sysinfo.c_zenspace;
+				}
+			} else {
+				memcpy(&t[n], s, width);
+				if(ac != NULL) {
+					memset(&ac[n], 0, width);
+				}
 			}
 			pos += kanji_countdsp(s, -1);
 			n += width;
@@ -213,13 +222,16 @@ bool legets_histprev(le_t *lep, int hn, HistoryData **hi)
 	if(hn == -1) {
 		return FALSE;
 	}
-	if(hn == FOPEN_SYSTEM) {
-		strcpy(path, edbuf[CurrentFileNo].path);
+	if(hn == historyOpen) {
+		path[0] = '\0';
+		if(CurrentFileNo >= 0 && CurrentFileNo < MAX_edbuf) {
+			strcpy(path, edbuf[CurrentFileNo].path);
+		}
 	}
 	if(*hi == NULL) {
 		*hi = history_get_last(hn);
 		legets_hist(lep, hn, hi);
-		if(hn != FOPEN_SYSTEM || strcmp(lep->buf, path)) {
+		if(hn != historyOpen || strcmp(lep->buf, path)) {
 			return TRUE;
 		}
 	}
@@ -229,7 +241,7 @@ bool legets_histprev(le_t *lep, int hn, HistoryData **hi)
 		}
 		*hi = (*hi)->prev;
 		legets_hist(lep, hn, hi);
-		if(hn != FOPEN_SYSTEM || strcmp(lep->buf, path)) {
+		if(hn != historyOpen || strcmp(lep->buf, path)) {
 			break;
 		}
 	}
@@ -246,7 +258,7 @@ bool legets_histnext(le_t *lep, int hn, HistoryData **hi)
 	return TRUE;
 }
 
-le_t *legets_lep;	// !!暫定的
+static le_t *legets_lep;
 
 dspfmt_t *dspreg_legets(void *vp, int a, int sizex, int sizey)
 {
@@ -255,7 +267,7 @@ dspfmt_t *dspreg_legets(void *vp, int a, int sizex, int sizey)
 	int n;
 
 	dfpb = dfp = dsp_fmtinit((char *)vp, NULL);
-	dfp->col = sysinfo.c_sysmsg;
+	dfp->col = sysinfo.c_frame;
 
 	n = le_regbuf(legets_lep->buf, buf, NULL);
 	dfp = dsp_fmtinit(buf + legets_lep->sx, dfp);
@@ -268,7 +280,7 @@ dspfmt_t *dspreg_path(void *vp, int a, int sizex, int sizey)
 	dspfmt_t *dfp;
 
 	dfp = dsp_fmtinit((char *)vp, NULL);
-	dfp->col = sysinfo.c_sysmsg;
+	dfp->col = sysinfo.c_frame;
 
 	return dfp;
 }
@@ -344,13 +356,19 @@ void set_input_string(le_t *le, char *input)
 	le_setlx(le, strlen(input));
 }
 
+extern char vertical_line_char[];
+
 int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 {
-	dspreg_t *drp, *path_drp;
+	dspreg_t *drp[4];
 	le_t le;
 	int key, ret;
+	int cx, cy;
 	flist_t fl;
 	fitem_t *fitem;
+	char top[LN_dspbuf + 1];
+	char bottom[LN_dspbuf + 1];
+	char title[LN_dspbuf + 1];
 	char path[LN_path + 1];
 	int input_length = 0;
 	char input[LN_path + 1];
@@ -359,19 +377,12 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 	legets_lep = &le;
 	OnMessage_Flag = TRUE;
 
-	drp = dsp_reginit();
-	drp->y = dspall.sizey - 1;
-	drp->func = dspreg_legets;
-	drp->sizex = dsize;
-	drp->sizey = 1;
-	drp->vp = (void *)msg;
-
-	dsp_regadd(drp);
-
+	strcpy(title, msg);
 	path[0] = '\0';
 	input[0] = '\0';
 	if(hn != -1) {
-		if(hn == FOPEN_SYSTEM) {
+		if(hn == historyOpen) {
+			char temp[LN_dspbuf + 1];
 			if(CurrentFileNo == MAX_edbuf) {
 				getcwd(path, LN_path);
 			} else {
@@ -384,31 +395,103 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 			}
 			get_file_list(&fl, path, input);
 			fitem = fl.fitem;
-
-			path_drp = dsp_reginit();
-			path_drp->y = dspall.sizey - 2;
-			path_drp->func = dspreg_path;
-			path_drp->sizex = dsize;
-			path_drp->sizey = 1;
-			path_drp->vp = (void *)path;
-			dsp_regadd(path_drp);
+			strcpy(title, msg);
+			strjfcpy(temp, path, LN_dspbuf, dsize - get_display_length(msg) - 6, FALSE);
+			strcat(title, " ");
+			strcat(title, temp);
+		} else if(hn == historySearch) {
+			sprintf(title, "%s OPT:%s%s%s", msg, sysinfo.searchwordf ? "W" : "", sysinfo.nocasef ? "C" : "", sysinfo.searchregf ? "R" : "");
 		}
 	}
-	le.dx = get_display_length(msg);
-	le.dsize = dsize - strlen(msg) - 2;
+	if(CurrentFileNo >= 0 && CurrentFileNo < MAX_edbuf) {
+		cx = GetCol();
+		if(split_mode == splitVertical && CurrentFileNo == split_file_no[splitRight]) {
+			cx += get_split_start(splitVertical);
+		}
+		if(cx > dspall.sizex - dsize - 2) {
+			cx = dspall.sizex - dsize - 2;
+		}
+		cy = GetRow() + 1;
+		if(split_mode == splitHorizon && CurrentFileNo == split_file_no[splitLower]) {
+			cy += get_split_start(splitHorizon);
+		}
+		if(cy > dspall.sizey - 4) {
+			cy = dspall.sizey - 4;
+		}
+	} else {
+		cx = 0;
+		cy = dspall.sizey - 4;
+	}
+	if(hn == historyMask) {
+		cy = 1;
+	}
+	make_frame_top(top, title, dsize + 1);
+	drp[0] = dsp_reginit();
+	drp[0]->func = dspreg_path;
+	drp[0]->x = cx;
+	drp[0]->y = cy;
+	drp[0]->sizex = dsize + 1;
+	drp[0]->sizey = 1;
+	drp[0]->vp = (void *)top;
+	dsp_regadd(drp[0]);
+	cy++;
+
+	drp[1] = dsp_reginit();
+	drp[1]->func = dspreg_legets;
+	drp[1]->x = cx;
+	drp[1]->y = cy;
+	drp[1]->sizex = dsize;
+	drp[1]->sizey = 1;
+	if(sysinfo.framechar >= frameCharFrame) {
+		drp[1]->vp = vertical_line_char;
+	} else {
+		drp[1]->vp = (sysinfo.framechar == frameCharASCII) ? "|" : " ";
+	}
+	dsp_regadd(drp[1]);
+
+	drp[2] = dsp_reginit();
+	drp[2]->func = dspreg_path;
+	drp[2]->x = cx + dsize;
+	drp[2]->y = cy;
+	drp[2]->sizex = 1;
+	drp[2]->sizey = 1;
+	if(sysinfo.framechar >= frameCharFrame) {
+		if(check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) {
+			drp[2]->x--;
+			drp[2]->sizex++;
+		}
+		drp[2]->vp = vertical_line_char;
+	} else {
+		drp[2]->vp = (sysinfo.framechar == frameCharASCII) ? "|" : " ";
+	}
+	dsp_regadd(drp[2]);
+
+	make_frame_bottom(bottom, dsize + 1);
+	drp[3] = dsp_reginit();
+	drp[3]->func = dspreg_path;
+	drp[3]->x = cx;
+	drp[3]->y = cy + 1;
+	drp[3]->sizex = dsize + 1;
+	drp[3]->sizey = 1;
+	drp[3]->vp = (void *)bottom;
+	dsp_regadd(drp[3]);
+
+	le.dx = (check_frame_ambiguous2() &&  sysinfo.framechar != frameCharTeraTerm) ? 2 : 1;
+	le.dsize = dsize - 2;
 	le.size = size;
 	strcpy(le.buf, s);
 	le.sx = 0;
 	le.cx = 0;
 	le.lx = 0;
 	le.l_sx = 0;
-	if(hn != SHELLS_SYSTEM) {
+	if(hn != historyShell) {
 		le_setlx(&le, strlen(s));
 	}
 
+	CrtDrawAll();
 	for(;;) {
 		dsp_allview();
-		term_locate(drp->y, le.dx + le.cx);
+		term_locate(cy, cx + le.dx + le.cx);
 
 		term_csrn();
 		key = get_keyf(1);
@@ -435,7 +518,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 			continue;
 		case KF_SysReturn:
 			strcpy(s, le.buf);
-			if(hn != -1 && hn != FOPEN_SYSTEM && *s != '\0') {
+			if(hn != -1 && hn != historyOpen && *s != '\0') {
 				HistoryData *hi;
 
 				hi = history_make_data(s);
@@ -447,7 +530,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 			ret = ESCAPE;
 			break;
 		case KF_SysBackspace:
-			if(hn == FOPEN_SYSTEM) {
+			if(hn == historyOpen) {
 				if(input_length > 0) {
 					input_length--;
 					while(input_length > 0 && iskanji(input[input_length])) {
@@ -473,11 +556,18 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 			continue;
 		case KF_SysCntrlInput:
 			putDoubleKey(CNTRL('P'));
-			system_guide(); // !!
-			term_locate(drp->y, le.dx + le.cx);
+			system_guide();
+			term_locate(cy, le.dx + le.cx);
 			key = term_inkey();
 			delDoubleKey();
 			le_edit(&le, key, NONE);
+			continue;
+		case KF_SysOptionMenu:
+			if(hn == historySearch) {
+				search_option(cx, cy + 1);
+				sprintf(title, "%s OPT:%s%s%s", msg, sysinfo.searchwordf ? "W" : "", sysinfo.nocasef ? "C" : "", sysinfo.searchregf ? "R" : "");
+				make_frame_top(top, title, dsize + 1);
+			}
 			continue;
 		default:
 			if(key & KF_normalcode) {
@@ -485,7 +575,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 				unsigned long ch, code;
 				code = key & ~KF_normalcode;
 				if(code == 0x09) {
-					if(hn == FOPEN_SYSTEM) {
+					if(hn == historyOpen) {
 						if(fitem != NULL) {
 							strcpy(le.buf, fitem->fn);
 							le.sx = 0;
@@ -530,7 +620,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 					}
 					input[input_length] = '\0';
 					le_edit(&le, code, NONE);
-					if(hn == FOPEN_SYSTEM) {
+					if(hn == historyOpen) {
 						set_input_string(&le, input);
 						clear_file_list(&fl);
 						get_file_list(&fl, path, input);
@@ -542,7 +632,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 		}
 		break;
 	}
-	if(hn == FOPEN_SYSTEM) {
+	if(hn == historyOpen) {
 		if(*s != '/') {
 			char temp[LN_path + 1];
 
@@ -552,11 +642,11 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 			strcat(s, temp);
 		}
 		clear_file_list(&fl);
-		term_locate(path_drp->y, 0);
-		term_clrtoe(AC_normal);
-		dsp_regfin(path_drp);
 	}
-	dsp_regfin(drp);
+	dsp_regfin(drp[0]);
+	dsp_regfin(drp[1]);
+	dsp_regfin(drp[2]);
+	dsp_regfin(drp[3]);
 	RefreshMessage();
 	return ret;
 }
