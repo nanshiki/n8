@@ -213,14 +213,14 @@ void dsp_regfin(dspreg_t *drp)
 void dsp_reinit()
 {
 	dspall.sizex = term_sizex() - 1;
-	dspall.sizey = GetMaxRow() + 1;
+	dspall.sizey = term_sizey();
 }
 
 void dsp_allinit()
 {
 	dspall.drp_num = 0;
 	dspall.sizex = term_sizex() - 1;
-	dspall.sizey = GetMaxRow() + 1;	//!!
+	dspall.sizey = term_sizey();
 }
 
 void dsp_allview()
