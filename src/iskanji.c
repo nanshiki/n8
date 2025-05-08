@@ -588,7 +588,7 @@ int kanji_posbuf(int offset, const char *buf)
 	}
 }
 
-int strjfcpy(char *s, const char *t, size_t bytes, size_t len)
+int strjfcpy(char *s, const char *t, size_t bytes, size_t len, bool space)
 {
 	int n, m;
 	int width = 0;
@@ -606,12 +606,30 @@ int strjfcpy(char *s, const char *t, size_t bytes, size_t len)
 		len -= m;
 		width += m;
 	}
-	for( ; len > 0 && bytes > 0 ; --len, --bytes) {
-		*s++ = ' ';
-		width++;
+	if(space) {
+		for( ; len > 0 && bytes > 0 ; --len, --bytes) {
+			*s++ = ' ';
+			width++;
+		}
 	}
 	*s = '\0';
 	return width;
+}
+
+int check_frame_ambiguous2()
+{
+	return sysinfo.framechar >= frameCharFrame && sysinfo.ambiguous != AM_FIX1;
+}
+
+int is_zen_space(const char *p)
+{
+	if(sysinfo.zenspacef) {
+		const unsigned char *pu = (const unsigned char *)p;
+		if(*pu == 0xe3 && *(pu + 1) == 0x80 && *(pu + 2) == 0x80) {
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 int is_half_kana(const char *p)
