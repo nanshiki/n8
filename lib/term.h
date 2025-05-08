@@ -93,9 +93,12 @@ typedef unsigned short color_t;
 
 #define AC_ignore	255
 
-#define	AM_FIX1		0
-#define	AM_FIX2		1
-#define	AM_EMOJI2	2
+#define	AM_FIX1		0x00
+#define	AM_FIX2		0x01
+#define	AM_EMOJI2	0x02
+#define	AM_MASK		0xff
+
+#define	AM_TERATERM	0x100
 
 void term_color(color_t c);
 void term_color_normal();

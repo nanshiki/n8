@@ -787,6 +787,7 @@ int term_utf8_half_code(unsigned long c)
 {
 	char type = 0;
 	wchar_t code;
+	int ambiguous = term.ambiguous & AM_MASK;
 
 	if(c < 0x100) {
 		return TRUE;
@@ -800,7 +801,7 @@ int term_utf8_half_code(unsigned long c)
 	if(code < 0x0080) {
 		return TRUE;
 	} else if(code <= 0x04ff) {
-		if(term.ambiguous == AM_EMOJI2) {
+		if(ambiguous == AM_EMOJI2) {
 			// (C) or (R)
 			if(code == 0xa9 || code == 0xae) {
 				return FALSE;
@@ -810,12 +811,15 @@ int term_utf8_half_code(unsigned long c)
 	} else if(code <= 0x1fff) {
 		return TRUE;
 	} else if(code >= 0x2000 && code <= 0x2bef) {
+		if((term.ambiguous & AM_TERATERM) && code >= 0x2500 && code <= 0x257f) {
+			return TRUE;
+		}
 		type = byte3_width[code - 0x2000];
 	} else if((code >= 0xe000 && code <= 0xf8ff) || (code >= 0xf0000 && code <= 0xffffd) || (code >= 0x100000 && code <= 0x10fffd)) {
 		// Private Use Areas
 		type = 'A';
 	}
-	if(term.ambiguous == AM_EMOJI2 && code >= 0x2000 && code <= 0x329f) {
+	if(ambiguous == AM_EMOJI2 && code >= 0x2000 && code <= 0x329f) {
 		wchar_t ecode = code - 0x2000;
 		if(emoji[ecode / 8] & (1 << (ecode % 8))) {
 			return FALSE;
@@ -824,9 +828,9 @@ int term_utf8_half_code(unsigned long c)
 	if(type == 'N' || type == 'H') {
 		return TRUE;
 	} else if(type == 'A') {
-		if(term.ambiguous == AM_FIX2 || term.ambiguous == AM_EMOJI2) {
+		if(ambiguous == AM_FIX2 || ambiguous == AM_EMOJI2) {
 			return FALSE;
-		} else if(term.ambiguous == AM_FIX1) {
+		} else if(ambiguous == AM_FIX1) {
 			return TRUE;
 		}
 	}
@@ -856,12 +860,10 @@ int term_puts(const char *s, const char *ac)
 	int len;
 	int redraw = FALSE;
 	unsigned long n;
+	color_t attr;
 
 	if(term.y >= term.sizey) {
 		return FALSE;
-	}
-	if(term.x > 0 && term.scr[term.y][term.x] == SCR_ignore) {
-		fprintf(stderr, "+");
 	}
 	if(term.x > 0 && term.scr[term.y][term.x] == SCR_ignore) {
 		term.scr[term.y][term.x - 1] = ' ';
@@ -880,10 +882,15 @@ int term_puts(const char *s, const char *ac)
 			if(term.x + len > term.sizex) {
 				break;
 			}
+			if(ac != NULL && *ac) {
+				attr = AC_color(*ac) | AC_attrib(term.cl);
+			} else {
+				attr = term.cl;
+			}
 			if(len == 2) {
 				n = (*s & 0xff) << 8 | (*(s + 1) & 0xff);
 				term.scr[term.y][term.x] = n;
-				term.attr[term.y][term.x] = term.cl;
+				term.attr[term.y][term.x] = attr;
 				if(!term_utf8_half_code(n)) {
 					term.x++;
 					term.scr[term.y][term.x] = SCR_ignore;
@@ -898,7 +905,7 @@ int term_puts(const char *s, const char *ac)
 				if(n >= 0xefbda1 && n <= 0xefbe9f) {
 					// 半角カナ
 					term.scr[term.y][term.x] = n;
-					term.attr[term.y][term.x] = term.cl;
+					term.attr[term.y][term.x] = attr;
 					s += 2;
 					if(ac != NULL) {
 						ac += 2;
@@ -909,7 +916,7 @@ int term_puts(const char *s, const char *ac)
 						redraw = TRUE;
 					}
 					term.scr[term.y][term.x] = n;
-					term.attr[term.y][term.x] = term.cl;
+					term.attr[term.y][term.x] = attr;
 					if(!term_utf8_half_code(n)) {
 						term.x++;
 						term.scr[term.y][term.x] = SCR_ignore;
@@ -923,7 +930,7 @@ int term_puts(const char *s, const char *ac)
 			} else if(len == 4) {
 				n = (*s & 0xff) << 24 | (*(s + 1) & 0xff) << 16 | (*(s + 2) & 0xff) << 8 | (*(s + 3) & 0xff);
 				term.scr[term.y][term.x] = n;
-				term.attr[term.y][term.x] = term.cl;
+				term.attr[term.y][term.x] = attr;
 				term.x++;
 				term.scr[term.y][term.x] = SCR_ignore;
 				term.scr[term.y][term.x] = 0;
