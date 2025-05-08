@@ -3,30 +3,31 @@
 #   キーは複数をまとめて指定する事もできます。
 !R	Key:eff
 
-  [ESC]             : Escape                   #ファイラー終了
+  [ESC]             : Escape                   # ファイラー終了
 
-  ^E [UP]           : CursorUp                 #カーソルを一つ上に
-  ^X [DOWN]         : CursorDown               #カーソルを一つ下に
+  ^E [UP]           : CursorUp                 # カーソルを一つ上に
+  ^X [DOWN]         : CursorDown               # カーソルを一つ下に
   ^D [RIGHT]        : WindowChange             #
-  ^S [LEFT] [TAB]   : WindowChange             #ウィンドウを移る
-  w                 : WindowNumChange          #ウィンドウの数を変更する
-  @                 : ReRead                   #ディレクトリ再読み込み
-  ^R \[UP] [PPAGE]  : PageUp                   #カーソルを一ページ上に
-  ^C \[DOWN] [NPAGE]: PageDown                 #カーソルを一ページ下に
-  ^W ^[UP]          : RollUp                   #カーソルを画面の1/4上に
-  ^Z ^[DOWN]        : RollDown                 #カーソルを画面の1/4下に
-  / \               : ChangeDir "/"            #/ ディレクトリに移動
-  ~                 : ChangeDir "~"            #ホームディレクトリに移動
-  ^H [BS]           : ChangeDir ".."           #一つ上のディレクトリに移動
-  [CR]              : Return                   #ファイルを編集、ディレクトリ移動
-  [SPACE]           : MarkChange               #マークを変更してカーソルを下に
-  f                 : FileMenu                 #ファイルメニュー
-  m                 : MaskMenu                 #マスクメニュー
-  d                 : DirMenu                  #ディレクトリメニュー
-  s                 : SortMenu                 #ソートメニュー
-  p                 : ChangeDir                #パス・マスク
-  a                 : MarkChangeAll            #マークを全反転
-  *                 : MaskClear                #マスククリア
+  ^S [LEFT] [TAB]   : WindowChange             # ウィンドウを移る
+  w                 : WindowNumChange          # ウィンドウの数を変更する
+  @                 : ReRead                   # ディレクトリ再読み込み
+  ^R \[UP] [PPAGE]  : PageUp                   # カーソルを一ページ上に
+  ^C \[DOWN] [NPAGE]: PageDown                 # カーソルを一ページ下に
+  ^W ^[UP]          : RollUp                   # カーソルを画面の1/4上に
+  ^Z ^[DOWN]        : RollDown                 # カーソルを画面の1/4下に
+  / \               : ChangeDir "/"            # ルートディレクトリに移動
+  ~                 : ChangeDir "~"            # ホームディレクトリに移動
+  ^H [BS]           : ChangeDir ".."           # 一つ上のディレクトリに移動
+  [CR]              : Return                   # ファイルを編集、ディレクトリ移動
+  [SPACE]           : MarkChange               # マークを変更してカーソルを下に
+  f                 : FileMenu                 # ファイルメニュー
+  m                 : MaskMenu                 # マスクメニュー
+  d                 : DirMenu                  # ディレクトリメニュー
+  s                 : SortMenu                 # ソートメニュー
+  p                 : ChangeDir                # パス・マスク
+  a                 : MarkChangeAll            # マークを全反転
+  *                 : MaskClear                # マスククリア
+  v                 : Redraw                   # 画面再描画
 
 !R	Val
   Sort          = file         #   (file/ext/new/old/large/small)ファイラーソート順
@@ -37,11 +38,11 @@
 
 # マスクメニュー項目
 !R	Menu:Mask
-"W)*.*"
-"C).h .c .cpp"
-"T).txt .conf"
+"W *.*"
+"C .h .c .cpp"
+"T .txt .conf"
 # 正規表現を使用する場合の例
-# "W).*"
-# 'C)\.(h|c|cpp)$'
-# 'T)\.(txt|conf)$'
+# 'W .*'
+# 'C \.(h|c|cpp)$'
+# 'T \.(txt|conf)$'
 

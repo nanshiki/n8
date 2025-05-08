@@ -3,105 +3,101 @@
 #   キーは複数をまとめて指定する事もできます。
 !R	Key
 
-  ^OC [F02]         : file_toggle           #62 カレントファイルの交換
-  ^OT [F03]         : file_select           #63 カレントファイルの変更
+  ^OC [F02]         : file_toggle           # カレントファイルの交換
+  ^OT [F03]         : file_select           # カレントファイルの変更
 
-  ^ON [ESC]O        : file_open             #70 ファイルのオープン
-  [ESC]C            : file_close            #73 カレントファイルの編集終了
-  [ESC]L            : file_copen            #74 close and open
-  ^KS [ESC]S        : file_save             #75 カレントファイルのセーブ
-  ^KQ [ESC]Q        : file_quit             #77 ファイルを破棄して終了
+  ^ON [ESC]O        : file_open             # ファイルのオープン
+  [ESC]C            : file_close            # ファイルのクローズ
+  ^KS [ESC]S        : file_save             # ファイルのセーブ
+  [ESC]N            : file_open_new         # 新規ファイルオープン
+  [ESC]R            : file_open_readonly    # Read onlyオープン
+  [ESC]L            : file_copen            # クローズ・オープン
+  ^OR [ESC]P        : file_rename           # ファイル名の変更
+  [ESC]D            : file_duplicate        # テキスト二重化
+  ^OO [ESC]U        : file_undo             # 編集のやり直し
+  [ESC]I            : file_insert           # カーソル位置に挿入
+  ^KX [ESC]X        : file_aclose           # 全ファイルのクローズ
+  [ESC]E            : misc_exec             # 子プロセス
+  [ESC]G            : misc_insert_output    # 子プロセスの出力を取り込み
+  ^KQ [ESC]Q        : file_quit             # エディタを終了
 
-  ^OR [ESC]P        : file_rename           #82 ファイル名の変更
+  ^KR               : file_readonly         # リードオンリー切替
 
-  ^OO [ESC]U        : file_undo             #M7 カレントの編集のやり直し
-  [ESC]I            : file_insert           #M8 ファイルを挿入
-  ^KX [ESC]X        : file_aclose           #M9 全ファイルのクローズ
+  ^E [UP]           : cursor_up             # カーソルを上へ
+  ^X [DOWN]         : cursor_down           # カーソルを下へ
+  ^S [LEFT]         : cursor_left           # カーソルを左へ
+  ^D [RIGHT]        : cursor_right          # カーソルを右へ
+  ^A \[LEFT]        : cursor_tkprev         # 前のトークンへ
+  ^F \[RIGHT]       : cursor_tknext         # 次のトークンへ
+  ^QS [HOME] ^[LEFT]: cursor_sleft          # カーソルを行頭へ
+  ^QD [END] ^[RIGHT]: cursor_sright         # カーソルを行末へ
 
+  ^W \[PGUP]        : cursor_rup            # ロールアップ
+  ^Z \[PGDN]        : cursor_rdown          # ロールダウン
+  ^R [PGUP] \[UP]   : cursor_pup            # ページアップ
+  ^C [PGDN] \[DOWN] : cursor_pdown          # ページダウン
+  ^QE ^[UP]         : cursor_sup            # カーソルを画面の一番上へ
+  ^QX ^[DOWN]       : cursor_sdown          # カーソルを画面の一番下へ
+  ^QR ^[PGUP]       : cursor_top            # カーソルをファイルの先頭へ
+  ^QC ^[PGDN]       : cursor_bottom         # カーソルをファイルの末尾へ
 
-  ^E [UP]           : cursor_up             #05 カーソルを上へ
-  ^X [DOWN]         : cursor_down           #06 カーソルを下へ
-  ^S [LEFT]         : cursor_left           #07 カーソルを左へ
-  ^D [RIGHT]        : cursor_right          #08 カーソルを右へ
-  ^A \[LEFT]        : cursor_tkprev         #09 前のトークンへ
-  ^F \[RIGHT]       : cursor_tknext         #10 次のトークンへ
-  ^QS [HOME] ^[LEFT]: cursor_sleft          #11 カーソルを行頭へ
-  ^QD [END] ^[RIGHT]: cursor_sright         #12 カーソルを行末へ
+  ^QP               : jump_before           # 直前のカーソル位置
+  ^QM               : jump_mark             # カーソル行マーク
+  ^OG ^QJ           : Jump_line             # 指定行ジャンプ
 
-  ^W \[PGUP]        : cursor_rup            #31 ロールアップ
-  ^Z \[PGDN]        : cursor_rdown          #32 ロールダウン
-  ^R [PGUP] \[UP]   : cursor_pup            #35 ページアップ
-  ^C [PGDN] \[DOWN] : cursor_pdown          #36 ページダウン
-  ^QE ^[UP]         : cursor_sup            #39 カーソルを画面の一番上へ
-  ^QX ^[DOWN]       : cursor_sdown          #40 カーソルを画面の一番下へ
-  ^QR ^[PGUP]       : cursor_top            #41 カーソルをファイルの先頭へ
-  ^QC ^[PGDN]       : cursor_bottom         #42 カーソルをファイルの末尾へ
-
-
-  ^QP               : jump_before           #43  直前のカーソル位置
-  ^QM               : jump_mark             #44  カーソル行マーク
-  ^OG ^QJ           : Jump_line             #45  指定行ジャンプ
-
-  ^K1               : jump_Mark 1           #M16 マーク #1～#4
+  ^K1               : jump_Mark 1           # マーク #1～#4
   ^K2               : jump_Mark 2           #
   ^K3               : jump_Mark 3           #
   ^K4               : jump_Mark 4           #
 
-  ^Q1               : Jump_before 1         #M17 マークジャンプ #1～#4
+  ^Q1               : Jump_before 1         # マークジャンプ #1～#4
   ^Q2               : jump_before 2         #
   ^Q3               : Jump_before 3         #
   ^Q4               : Jump_before 4         #
 
-  ^QG \[F10]        : jump_tag              #M18 タブジャンプ
+  ^QG \[F10]        : jump_tag              # タブジャンプ
 
+  [CR]              : line_cr               # 改行
 
+  ^U                : char_undo             # 削除文字のアンドゥ
+  ^P                : char_input            # 制御文字の入力
 
-  [CR]              : line_cr               #04 改行
+  ^N \[CR]          : line_new              # 新しい行の挿入
+  ^QL \[F02]U       : line_undo             # 行編集の取消
 
-  ^U                : char_undo             #20 削除文字のアンドゥ
-  ^P                : char_input            #22 制御文字の入力
+  ^H [BS]           : del_bs                # カーソル前の文字を削除
+  ^G [DEL]          : del_char              # カーソル上の文字を削除
+  ^QH \[BS]         : del_tkprev            # 語の先頭まで削除
+  ^T \[DEL]         : del_tknext            # 語の終りまで削除
+  ^QT ^[BS]         : del_sleft             # 行頭まで削除
+  ^QY ^[DEL]        : del_sright            # 行末まで削除
 
-  ^N \[CR]          : line_new              #53 新しい行の挿入
-  ^QL \[F02]U       : line_undo             #54 行編集の取消
+  ^KB [F10]         : block_start           # ブロックモード
+  ^Y ^KY [F08]      : block_cut             # ブロックへ移動
+  ^J [F09]          : block_paste           # ブロックから移動
+  ^KK \[F08]        : block_yanc            # ブロックへ複写
+  ^KC \[F09]        : block_copy            # ブロックから複写
+  \[F02]C           : block_kill            # ブロックバッファの消去
+  ^QB \[F02]B       : block_chlast          # ブロックのtop/end
 
+  ^KW               : block_dup             # カーソル行複写
 
-  ^H [BS]           : del_bs                #14 カーソル前の文字を削除
-  ^G [DEL]          : del_char              #15 カーソル上の文字を削除
-  ^QH \[BS]         : del_tkprev            #16 語の先頭まで削除
-  ^T \[DEL]         : del_tknext            #17 語の終りまで削除
-  ^QT ^[BS]         : del_sleft             #18 行頭まで削除
-  ^QY ^[DEL]        : del_sright            #19 行末まで削除
+  ^QQ \[INS]        : search_paging         # ページングモード
 
+  ^QF [F06]         : search_in             # 検索文字列の入力
+  ^QA [F07]         : search_repl           # 文字列の置換
+  ^QO               : search_repl_redo      # 前回の置換の実行
 
-  ^KB [F10]         : block_start           #46 ブロックモード
-  ^Y ^KY [F08]      : block_cut             #47 ブロックへ移動
-  ^J [F09]          : block_paste           #48 ブロックから移動
-  ^KK \[F08]        : block_yanc            #49 ブロックへ複写
-  ^KC \[F09]        : block_copy            #50 ブロックから複写
-  \[F02]C           : block_kill            #51 ブロックバッファの消去
-  ^QB \[F02]B       : block_chlast          #52 ブロックのtop/end
+  ^L  [F05]         : search_getword        # 検索文字列の連続取得
 
-  ^KW               : block_dup             #M19 カーソル行複写
+  ^_ ^\             : misc_kmacro           # キーボードマクロ
+  ^V [INS]          : opt_set "OverWrite"   # 入力モードon/off
 
+  [F01]             : menu_file             # ファイルメニュー
+  [F12]             : menu_opt              #
+  ^KI               : opt_tab               # タブの切替え
 
-  ^QQ \[INS]        : search_paging         #30 ページングモード
+  [F04]             : file_split            # テキスト分割表示
+  ^QV               : file_splitmove        # テキスト分割位置移動
 
-  ^QF [F06]         : search_in             #55 検索文字列の入力
-  ^QA [F07]         : search_repl           #56 文字列の置換
-  ^QO               : search_repl_redo      #57 前回の置換の実行
-
-  ^L  [F05]         : search_getword        #M24検索文字列の連続取得
-
-
-
-  ^_ ^\             : misc_kmacro           #02 キーボードマクロ
-  ^V [INS]          : opt_set "OverWrite"   #13 入力モードon/off
-  [ESC]E            : misc_exec             #78 シェルコマンドの実行
-  [ESC]G            : misc_insert_output    #   コマンドの実行結果の取り込み
-
-  [F01]             : menu_file             #M2  ファイルメニュー
-  [F04] \[F01]      : menu_opt              #
-  ^KI               : opt_tab               #M15 タブの切替え
-
-  [ESC]D            : misc_redraw           #
-
+  [ESC]V            : misc_redraw           # 画面再描画

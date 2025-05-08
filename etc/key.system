@@ -27,3 +27,5 @@
   ^QD \[RIGHT]      : Cursorrightside       #カーソルを右端に
   ^QR               : Cursortopside         #カーソルを上端に
   ^QC               : Cursorendside         #カーソルを下端に
+
+  [F12]             : OptionMenu

@@ -1,0 +1,29 @@
+#
+# 端末汎用の設定
+#
+
+
+#  色設定
+#       0:black 1:red 2:green 3:yellow 4:blue 5:magenta 6:cyan 7:white
+#       B:bold U:underline R:reverse
+!R	Val
+
+  col_block     = R       # ブロックモード
+  col_linenum   = 4       # 行番号
+
+  col_ctrl      = 4       # コントロールコード
+  col_crmark    = 4       # 行末マーク
+  col_tab       = 4       # タブマーク
+  col_zenspace  = 4       # 全角スペース
+  col_statusbar = R       # ステータスバー
+  col_readonly  = 6R      # リードオンリーステータスバー
+  col_frame     = R       # メニューや入力ウインドウの枠
+
+  col_sysmsg    = 3B      # システムメッセージ
+  col_search    = 3R      # 検索文字列
+  col_menuc     =         # メニューのカーソル
+  col_menun     = R       # メニューの通常の文字
+  col_eff_dirc  = 1R      # ファイラーのディレクトリにカーソルがある時
+  col_eff_dirn  = 6       # ファイラーのディレクトリ
+  col_eff_normc = 1R      # ファイラーのカーソル
+  col_eff_normn =         # ファイラーの通常の文字
