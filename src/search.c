@@ -19,7 +19,7 @@
 #include "../lib/regexp.h"
 #include <ctype.h>
 
-void cursor_move(int lx, long ly)	// !!
+void cursor_move(int lx, long ly)
 {
 	RefreshMessage();
 
@@ -70,6 +70,29 @@ void search_clrword()
 	*s_get = '\0';
 }
 
+int is_word_char(char c)
+{
+	if(isalnum(c)) {
+		return FALSE;
+	}
+	if(c == '_') {
+		return FALSE;
+	}
+	return TRUE;
+}
+
+int check_word(char *buffer, regm_t *rmp)
+{
+	if(!sysinfo.searchwordf) {
+		return TRUE;
+	}
+	if((rmp->rm_so > 0 && is_word_char(buffer[rmp->rm_so - 1]))
+	  && (rmp->rm_eo < strlen(buffer) - 1 && is_word_char(buffer[rmp->rm_eo]))) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
 long search_next(const char *s, int x, long y, regm_t *rmp)
 {
 	EditLine *ed;
@@ -87,8 +110,11 @@ long search_next(const char *s, int x, long y, regm_t *rmp)
 		if(ed == NULL || ed->buffer == NULL) {
 			break;
 		}
-		if(regexp_seeknext(ed->buffer, s, x, rmp, sysinfo.nocasef)) {
-			return y;
+		
+		if(regexp_seeknext(ed->buffer, s, x, rmp, sysinfo.searchregf, sysinfo.nocasef)) {
+			if(check_word(ed->buffer, rmp)) {
+				return y;
+			}
 		}
 		ed = ed->next;
 		x = 0;
@@ -113,8 +139,10 @@ long search_prev(const char *s, int x, long y, regm_t *rmp)
 	}
 
 	for( ; y > 0 ; --y) {
-		if(regexp_seekprev(ed->buffer, s, x, rmp, sysinfo.nocasef)) {
-			return y;
+		if(regexp_seekprev(ed->buffer, s, x, rmp, sysinfo.searchregf, sysinfo.nocasef)) {
+			if(check_word(ed->buffer, rmp)) {
+				return y;
+			}
 		}
 		ed = ed->prev;
 		if(ed == NULL || ed->buffer == NULL) { // buffer
@@ -130,7 +158,7 @@ SHELL void op_search_in()
 	char buf[MAXEDITLINE + 1];
 
 	*buf = '\0';
-	if(HisGets(buf, GETS_FIND_MSG, SEARCHS_SYSTEM) == NULL || *buf == '\0') {
+	if(HisGets(buf, GETS_FIND_MSG, historySearch) == NULL || *buf == '\0') {
 		edbuf[CurrentFileNo].pm = FALSE;
 		*s_search = '\0';
 	} else {
@@ -194,8 +222,9 @@ void replace()
 	long y, my;
 	int x, mx;
 	int chgNo;
+	int res;
 	char buf[MAXLINESTR + 1];
-	bool rf;
+	bool rf = FALSE;
 
 	int cx, sx, lx, cy;
 	long ly;
@@ -232,7 +261,13 @@ void replace()
 		my = GetBlockEnd();*/
 	}
 
-	rf = FALSE;
+	CrtDrawAll();
+	res = keysel_yneq(CHECK_REPLACE_ALL_MSG);
+	if(res == ESCAPE) {
+		return;
+	} else if(res) {
+		rf = TRUE;
+	}
 	for(;;) {
 		system_msg(SEARCHING_MSG);
 		y = search_next(s_search, x, y, &rm);
@@ -249,28 +284,32 @@ void replace()
 		cursor_move(x, y);
 
 		if(!rf) {
-			char c;
 			int n;
 			char buf[LN_dspbuf + 1];
+			int row = GetRow();
+			int col = GetCol() + NumWidth;
 
 			CrtDrawAll();
-			term_locate(GetRow(), GetCol() + NumWidth);
+			system_guide();
+			if(split_mode == splitVertical && CurrentFileNo == split_file_no[splitRight]) {
+				col += get_split_start(splitVertical);
+			}
+			if(split_mode == splitHorizon && CurrentFileNo == split_file_no[splitLower]) {
+				row += get_split_start(splitHorizon);
+			}
+			term_locate(row, col);
 
 			term_color(sysinfo.c_search);
 			memcpy(buf, GetList(y)->buffer + rm.rm_so, rm.rm_eo - rm.rm_so);
 			buf[rm.rm_eo - rm.rm_so] = '\0';
 			term_puts(buf, NULL);
 
-			c = keysel(REPLACE_YNA_MSG, "Yy\r\nNnAa \x1b");
-			if(c == '\x1b') {
+			res = keysel_yneq(REPLACE_MSG);
+			if(res == ESCAPE) {
 				break;
-			}
-			if(c == 'n' || c == ' ') {
+			} else if(!res) {
 				++x;
 				continue;
-			}
-			if(c == 'a') {
-				rf = TRUE;
 			}
 		}
 
@@ -319,18 +358,18 @@ SHELL void op_search_repl()
 
 	CrtDrawAll();
 	*s_search = '\0';
-	if(HisGets(s_search, GETS_FIND_MSG, SEARCHS_SYSTEM) == NULL) {
+	if(HisGets(s_search, GETS_FIND_MSG, historySearch) == NULL) {
 		return;
 	}
 	*s_repl = '\0';
-	if(HisGets(s_repl, GETS_REPLACE_MSG, SEARCHS_SYSTEM) == NULL) {
+	if(HisGets(s_repl, GETS_REPLACE_MSG, historySearch) == NULL) {
 		return;
 	}
 	system_msg("");
 	csr_leupdate();
 
 	nums = 3;
-	res = menu_vselect(GetCol(), GetRow(), nums, REPLACE_ALL_MSG, REPLACE_FORWARD_MSG, REPLACE_BACK_MSG, REPLACE_INSIDEBLOCK_MSG);
+	res = menu_vselect(NULL, GetCol(), GetRow(), nums, REPLACE_ALL_MSG, REPLACE_FORWARD_MSG, REPLACE_BACK_MSG, REPLACE_INSIDEBLOCK_MSG);
 
 	switch(res) {
 	case -1:
