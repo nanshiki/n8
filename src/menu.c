@@ -120,6 +120,9 @@ int menu_vselect(char *title, int x, int y, size_t num, ...)
 	if(y != -1) {
 		menu.drp->y = y;
 	}
+	if(menu.drp->y > dspall.sizey - num - 3) {
+		menu.drp->y = dspall.sizey - num - 3;
+	}
 	va_start(args, num);
 	menu_itemfin(&menu);
 	menu.mitem = mem_alloc(sizeof(mitem_t) * num);

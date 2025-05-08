@@ -355,6 +355,8 @@ SHELL void op_search_repl()
 {
 	int res;
 	int nums;
+	int col = GetCol() + NumWidth;
+	int row = GetRow();
 
 	CrtDrawAll();
 	*s_search = '\0';
@@ -369,7 +371,14 @@ SHELL void op_search_repl()
 	csr_leupdate();
 
 	nums = 3;
-	res = menu_vselect(NULL, GetCol(), GetRow(), nums, REPLACE_ALL_MSG, REPLACE_FORWARD_MSG, REPLACE_BACK_MSG, REPLACE_INSIDEBLOCK_MSG);
+	if(split_mode == splitVertical && CurrentFileNo == split_file_no[splitRight]) {
+		col += get_split_start(splitVertical);
+	}
+	if(split_mode == splitHorizon && CurrentFileNo == split_file_no[splitLower]) {
+		row += get_split_start(splitHorizon);
+	}
+	row += 3;
+	res = menu_vselect(NULL, col, row, nums, REPLACE_ALL_MSG, REPLACE_FORWARD_MSG, REPLACE_BACK_MSG, REPLACE_INSIDEBLOCK_MSG);
 
 	switch(res) {
 	case -1:
