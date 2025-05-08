@@ -347,11 +347,26 @@ int get_keyf(int region)
 int keysel(const char *s, const char *t)
 {
 	int c;
+	char *y, *n;
+
+	y = strchr(t, 'y');
+	n = strchr(t, 'n');
 
 	system_msg(s);
 
 	do {
 		c = term_inkey();
+		if((y || n) && (unsigned char)c == 0xef) {
+			c = term_inkey();
+			if((unsigned char)c == 0xbd) {
+				c = term_inkey();
+				if(y && (unsigned char)c == 0x99) {
+					return 'y';
+				} else if(n && (unsigned char)c == 0x8e) {
+					return 'n';
+				}
+			}
+		}
 	} while(strchr(t, c) == NULL);
 
 	return tolower(c);
@@ -362,7 +377,7 @@ bool keysel_ynq(const char *s)
 	char tmpbuff[MAXLINESTR + 1];
 	char c;
 
-	sprintf(tmpbuff, "%s ? (y/n) :", s);
+	sprintf(tmpbuff, "%s ? (Y/N) ", s);
 	c = keysel(tmpbuff, "Yy\r\nNn \x1b");
 	return c == 'y' || c == '\r' || c == '\n';
 }
@@ -372,7 +387,7 @@ int keysel_yneq(const char *s)
 	char tmpbuff[MAXLINESTR + 1];
 	int c, ret;
 
-	sprintf(tmpbuff, "%s ? (y/n or ESC) :", s);
+	sprintf(tmpbuff, "%s ? (Y/N) ", s);
 	c = keysel(tmpbuff, "Yy\r\nNn \x1b");
 
 	switch(c) {
