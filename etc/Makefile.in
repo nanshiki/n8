@@ -10,9 +10,9 @@ mkinstalldirs = /bin/sh $(top_srcdir)/mkinstalldirs
 INSTALL= @INSTALL@
 INSTALL_DATA= @INSTALL_DATA@
 
-INSS=   n8rc n8rc.ele n8rc.tk \
-        key.vz key.ele key.tk key.eff key.system \
-        term term.rxvt term.kterm term.xterm-256color
+INSS=   n8rc n8rc.tk \
+        key.vz key.tk key.eff key.system \
+        term.xterm term.xterm-256color
 
 all:
 
