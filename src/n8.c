@@ -65,18 +65,20 @@ void n8_loop(int region)
 		}
 		if((key & KF_normalcode) == 0) {
 			funclist[0][key]();
+			if(CurrentFileNo == -1 && BackFileNo == -1) {
+				break;
+			}
 		} else {
 			if(region == 0) {
-				InputAndCrt(key & ~KF_normalcode);
+				if(edbuf[CurrentFileNo].readonly) {
+					system_msg(NOCHANGE_MSG);
+				} else {
+					InputAndCrt(key & ~KF_normalcode);
+				}
 			}
 		}
 	}
-}
-
-void n8_fin()
-{
 	history_save_file();
-	exit(0);
 }
 
 void n8_init()
@@ -93,7 +95,7 @@ void n8_init()
 		getcwd(sysinfo.nxpath, LN_path);
 	}
 	strcat(sysinfo.nxpath, "/.n8");
-	mkdir(sysinfo.nxpath, 0777); // !!
+	mkdir(sysinfo.nxpath, 0777);
 
 	sysinfo.shell = getenv("SHELL");
 	if(sysinfo.shell == NULL) {
@@ -144,9 +146,9 @@ bool n8_arg(int argc, char *argv[])
 			break;
 		case 'r':
 			{
-				HistoryData *hi = history_get_last(FOPEN_SYSTEM);
+				HistoryData *hi = history_get_last(historyOpen);
 				if(hi != NULL && hi->buffer != NULL) {
-					if(FileOpenOp(hi->buffer)) {
+					if(FileOpenOp(hi->buffer, openModeNormal) == openOK) {
 					 	f = TRUE;
 					}
 				}
@@ -168,7 +170,7 @@ bool n8_arg(int argc, char *argv[])
 		if(*argv[optcount] == '+') {
 			line = atoi(argv[optcount] + 1);
 		} else {
-			if(FileOpenOp(argv[optcount])) {
+			if(FileOpenOp(argv[optcount], openModeNormal) == openOK) {
 			 	f = TRUE;
 			}
 		}
@@ -221,7 +223,7 @@ int main(int argc, char *argv[])
 	eff_init(NULL, NULL);
 	sort_init();
 	system_guide_init();
-	*sysinfo.doublekey = '\0'; // !!
+	*sysinfo.doublekey = '\0';
 	if(!open_flag) {
 		op_file_open();
 	}
@@ -262,7 +264,7 @@ void op_misc_exec()
 	char buf[MAXEDITLINE + 1];
 
 	*buf = '\0';
-	if(HisGets(buf, GETS_SHELL_MSG, SHELLS_SYSTEM) != NULL) {
+	if(HisGets(buf, GETS_SHELL_MSG, historyShell) != NULL) {
 		CommandCom(buf);
 	}
 }
@@ -290,7 +292,7 @@ void op_misc_insert_output(void)
 	int pipefds[2];
 	char buf[MAXEDITLINE + 1] = "";
 
-	if(HisGets(buf, GETS_SHELL_MSG, SHELLS_SYSTEM) == NULL) {
+	if(HisGets(buf, GETS_SHELL_MSG, historyShell) == NULL) {
 		return;
 		/* NOTREACHED */
 	}
