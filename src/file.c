@@ -26,9 +26,40 @@
 #include <sys/stat.h>
 #include <sys/file.h>
 
-void FileStartInit(bool f) // !! list clear flag 
+enum {
+	menuFileOpen,
+	menuFileClose,
+	menuFileSave,
+	menuFileNew,
+	menuFileReadonly,
+	menuFileCloseOpen,
+	menuFileRename,
+	menuFileDuplicate,
+	menuFileUndo,
+	menuFileInsert,
+	menuFileAllClose,
+	menuFileMiscExec,
+	menuFileInsertOutput,
+	menuFileQuit,
+
+	menuFileMax
+};
+
+enum {
+	openInput,
+	openFiler,
+};
+
+static int open_type;
+static int duplicate_flag;
+static int last_current_file_no;
+static int last_back_file_no;
+static int duplicate_file_no;
+
+void FileStartInit(bool f)
 {
 	edbuf[CurrentFileNo].cf = FALSE;
+	edbuf[CurrentFileNo].readonly = FALSE;
 	BlockInit();
 
 	// cursor
@@ -167,7 +198,7 @@ bool edbuf_add_func(FILE *fp, const char *fn)
 	return TRUE;
 }
 
-bool edbuf_add(const char *fn)
+bool edbuf_add(const char *fn, bool flag)
 {
 	int i;
 
@@ -180,9 +211,11 @@ bool edbuf_add(const char *fn)
 		inkey_wait(DONT_OPEN_MORE_FILE_MSG);
 		return FALSE;
 	}
-	if(!edbuf_lock(edbuf_add_func, fn)) {
-		inkey_wait(ALREADY_OPEN_MSG);
-		return FALSE;
+	if(flag) {
+		if(!edbuf_lock(edbuf_add_func, fn)) {
+			inkey_wait(ALREADY_OPEN_MSG);
+			return FALSE;
+		}
 	}
 	strcpy(edbuf[i].path, fn);
 	BackFileNo = CurrentFileNo;
@@ -223,9 +256,6 @@ bool CheckFileAccess(const char *fn)
 
 bool file_change(int n)
 {
-	/*	2000/03/08 by Mia	fix
-		edbuf[n].path == '\0' cannot be true.
-	*/
 	if(n < 0 || n > MAX_edfiles || *edbuf[n].path == '\0') {
 		return FALSE;
 	}
@@ -233,6 +263,9 @@ bool file_change(int n)
 	CurrentFileNo = n;
 	if(CheckFileAccess(NULL)) {
 		system_msg(TARGET_FILE_CHANGED_MSG);
+	}
+	if(split_mode != splitNone) {
+		csr_setdy(GetRow());
 	}
 	return TRUE;
 }
@@ -317,11 +350,6 @@ int filesave(char *filename, bool f)
 	FILE *fp;
 	int res;
 
-	/*	2000.03.08 by Mia	fix
-		If strlen(filename) == LN_path,
-		strcat(backpath, ".bak") may fail.
-		This should be fixed although a pathological case.
-	*/
 	char backpath[LN_path + 4 + 1];
 	char buffer[MAXEDITLINE + 1];
 	if(!f) {
@@ -329,7 +357,8 @@ int filesave(char *filename, bool f)
 			return TRUE;
 		}
 		term_bell();
-		res = keysel_yneq(THIS_FILE_CHANGED_MSG);
+		sprintf(buffer, CHECK_OUTPUT_FILE_MSG, edbuf[CurrentFileNo].path);
+		res = keysel_yneq(buffer);
 		if(res == ESCAPE) {
 			return FALSE;
 		}
@@ -370,9 +399,7 @@ int filesave(char *filename, bool f)
 	fclose(fp);
 	ResetFileChangeFlag();
 
-	sprintf(buffer, "%s %s", SAVESUCCESS_MSG, filename);
-	system_msg(buffer);
-
+	system_msg("");
 	return TRUE;
 }
 
@@ -392,37 +419,43 @@ void *file_new_proc(char *s, void *vp)
 	return NULL;
 }
 
-int fileopen(char *filename, int kc)
+int fileopen(char *filename, int kc, int line, int mode)
 {
 	FILE *fp;
 	char buf[MAXEDITLINE + 1];
 	struct stat sbuf;
 	kinfo_t ki;
-	int n, nx, a, line;
+	int n, nx, a;
 	bool sf;
 
 	sf = stat(filename, &sbuf);
 	if(!sf && (sbuf.st_mode & S_IFMT) != S_IFREG) {
-		return FALSE;	/* レギュラーファイルではない。*/
+		return openNG;	/* レギュラーファイルではない。*/
 	}
 	fp = fopen(filename, "r");
 	if(fp == NULL) {
 		if(access(filename, F_OK) == -1) { /* 新規ファイル */
+			if(mode != openModeNew && sysinfo.newfilef) {
+				sprintf(buf, CHECK_NEW_FILE_MSG, filename);
+				if(!keysel_ynq(buf)) {
+					system_msg("");
+					return openCancel;
+				}
+			}
 			lists_add((void *(*)(char *, void *))file_new_proc, "");
 			edbuf[CurrentFileNo].ct = -1;
 			edbuf[CurrentFileNo].kc = KC_utf8;
 
-			sprintf(buf, "%s [ %s ]", NEWFILE_MSG, filename);
-			system_msg(buf);
+			system_msg(NEWFILE_MSG);
 			csr_lenew();
-			return TRUE;
+			return openOK;
 		}
 		if(access(filename, R_OK) == -1) {
 			 inkey_wait(PERMISSION_MSG);
 		} else {
 			 inkey_wait(UNKNOWN_ERROR_MSG);
 		}
-		return FALSE;
+		return openNG;
 	}
 	edbuf[CurrentFileNo].ct = sf ? sbuf.st_ctime : -1;
 	sprintf(buf, "%s %s", READING_MSG, filename);
@@ -461,15 +494,16 @@ int fileopen(char *filename, int kc)
 	}
 	csr_lenew();
 
-	line = history_add_file(filename);
-
+	if(line == -1) {
+		line = history_add_file(filename);
+	}
 	a = min(line, GetRowWidth() / 2 + 1);
 	csr_setly(line - a + 1);
 	csr_setdy(a);
 
 	RefreshMessage();
 
-	return TRUE;
+	return openOK;
 }
 
 bool file_insert(char *filename)
@@ -504,11 +538,12 @@ bool RenameFile(int current_no, const char *s)
 	char fn[MAXEDITLINE + 1];
 	struct stat sbuf;
 
+	CrtDrawAll();
 	if(s != NULL && *s != '\0') {
 		strcpy(fn, s);
 	} else {
 		strcpy(fn, edbuf[current_no].path);
-		if(HisGets(fn, RENAME_MSG, FRENAME_SYSTEM) == NULL) {
+		if(HisGets(fn, RENAME_MSG, historyRename) == NULL) {
 			return FALSE;
 		}
 		if(*fn == '\0') {
@@ -531,17 +566,18 @@ bool RenameFile(int current_no, const char *s)
 	if(access(fn, F_OK) != -1 && !keysel_ynq(FILE_EXIST_MSG)) {
 		return FALSE;
 	}
+	edbuf[current_no].cf = TRUE;
 	if(edbuf_mv(current_no, fn)) {
 		return FALSE;
 	}
-	SetFileChangeFlag();
 	edbuf[current_no].ct = stat(edbuf[current_no].path, &sbuf) == -1 ? -1 : sbuf.st_ctime;
 	return TRUE;
 }
 
-bool FileOpenOp(const char *path)
+int FileOpenOp(const char *path, int mode)
 {
-	int  n;
+	int res;
+	int n, split_no, back_no;
 	char pf[LN_path + 1];
 
 	if(*path == '\0') {
@@ -550,67 +586,101 @@ bool FileOpenOp(const char *path)
 	strcpy(pf, path);
 	reg_pf(NULL, pf, FALSE);
 
+	if(split_mode != splitNone) {
+		split_no = (split_file_no[splitFirst] == CurrentFileNo) ? splitFirst : splitSecond;
+		back_no = BackFileNo;
+	}
 	n = CheckFileOpened(pf);
 	if(n != -1) {
-		/*	2000/03/08 by Mia	upd
-			Do not call file_change
-			when requested file has been already opened and is current file
-			so that BackFileNo not be changed.
-		*/
 		file_change(n);
 		return FALSE;
 	}
-	if(!edbuf_add(pf)) {
+	if(!edbuf_add(pf, TRUE)) {
 		return FALSE;
 	}
-	FileStartInit(TRUE); //!!?? なぜここにこれが必要？
-	if(fileopen(edbuf[CurrentFileNo].path, -1)) {
-		return TRUE;
+	FileStartInit(TRUE);
+	res = fileopen(edbuf[CurrentFileNo].path, -1, -1, mode);
+	if(res == openOK) {
+		if(split_mode != splitNone) {
+			split_file_no[split_no] = CurrentFileNo;
+			BackFileNo = back_no;
+		}
+		return openOK;
 	}
 	edbuf_rm(CurrentFileNo);
 	lists_clear();
 	CurrentFileNo = BackFileNo;
-	return FALSE;
+	return res;
 }
 
-/*-----------------------------------------------------------------------------
-	ESC-O handler.
-
-	2000/03/11 by Mia	upd
-		hack up filer support.
-*/
-bool exec_file_open()				/* ^[O */
+bool exec_file_open(int mode)
 {
+	int res;
 	char fname[LN_path + 1];
 
-	*fname = '\0';
-	if(HisGets(fname, OPEN_MSG, FOPEN_SYSTEM) == NULL) {
-		return FALSE;
-	}
-	fname[LN_path] = '\0';
-	if(need_filer(fname)) {
-		system_msg("");
-		fwc_setdir(fname);
-		eff_filer(fname);
-	}
-	if(*fname == '\0') {
-		CrtDrawAll();
-		return FALSE;
-	}
-	return FileOpenOp(fname);
+	CrtDrawAll();
+	do {
+		*fname = '\0';
+		if(HisGets(fname, (mode == openModeNew) ? OPEN_NEW_MSG : OPEN_MSG, historyOpen) == NULL) {
+			system_msg("");
+			return FALSE;
+		}
+		fname[LN_path] = '\0';
+		if(need_filer(fname)) {
+			CrtDrawAll();
+			system_msg("");
+			fwc_setdir(fname);
+			if(eff_filer(fname)) {
+				open_type = openFiler;
+			}
+		} else {
+			open_type = openInput;
+		}
+		if(*fname == '\0') {
+			CrtDrawAll();
+			return FALSE;
+		}
+		res = FileOpenOp(fname, mode);
+	} while(res == openCancel);
+	return (res == openOK);
 }
 
 SHELL void op_file_open()				/* ^[O */
 {
-	exec_file_open();
+	exec_file_open(openModeNormal);
+}
+
+SHELL void op_file_open_new()
+{
+	exec_file_open(openModeNew);
+}
+
+SHELL void op_file_open_readonly()
+{
+	if(exec_file_open(openModeReadonly)) {
+		edbuf[CurrentFileNo].readonly = TRUE;
+	}
+}
+
+bool check_readonly()
+{
+	bool flag = FALSE;
+	if(edbuf[CurrentFileNo].readonly) {
+		char buffer[MAXEDITLINE + 1];
+		sprintf(buffer, READONLY_MSG, edbuf[CurrentFileNo].path);
+		system_msg(buffer);
+		flag = TRUE;
+	}
+	return flag;
 }
 
 bool exec_file_insert()				/* ^[I */
 {
 	char fname[MAXEDITLINE + 1];
 
+	CrtDrawAll();
 	*fname = '\0';
-	if(HisGets(fname, INS_MSG, FOPEN_SYSTEM) == NULL) {
+	if(HisGets(fname, INS_MSG, historyOpen) == NULL) {
 		return FALSE;
 	}
 	fname[LN_path] = '\0';
@@ -630,30 +700,11 @@ bool exec_file_insert()				/* ^[I */
 
 SHELL void op_file_insert()				/* ^[I */
 {
+	if(check_readonly()) {
+		return;
+	}
 	exec_file_insert();
-}
-
-SHELL void op_file_save_as()
-{
-	struct stat sbuf;
-	int cTime;
-	char fn[LN_path + 1];
-
-	csr_leupdate();
-	strcpy(fn, edbuf[CurrentFileNo].path);
-	if(HisGets(fn, RENAME_MSG, FRENAME_SYSTEM) == NULL) {
-		return;
-	}
-	if(*fn == '\0') {
-		return;
-	}
-	if(!filesave(fn, TRUE)) {
-		return;
-	}
-	if(strcmp(fn, edbuf[CurrentFileNo].path) == 0) {
-		cTime = stat(edbuf[CurrentFileNo].path, &sbuf);
-		edbuf[CurrentFileNo].ct = cTime == -1 ? -1 : sbuf.st_ctime;
-	}
+	system_msg("");
 }
 
 SHELL void op_file_save()
@@ -662,8 +713,19 @@ SHELL void op_file_save()
 	int cTime;
 	char fn[LN_path + 1];
 
+	if(check_readonly()) {
+		return;
+	}
+
+	CrtDrawAll();
 	csr_leupdate();
 	strcpy(fn, edbuf[CurrentFileNo].path);
+	if(HisGets(fn, OUTPUT_FILE_MSG, historyRename) == NULL) {
+		return;
+	}
+	if(*fn == '\0') {
+		return;
+	}
 	if(!filesave(fn, TRUE)) {
 		return;
 	}
@@ -680,7 +742,7 @@ bool fileclose(int n)
 	csr_leupdate();
 	m = CurrentFileNo;
 	CurrentFileNo = n;
-	if(edbuf[n].cf && !filesave(edbuf[n].path, FALSE)) {
+	if(edbuf[n].cf && !edbuf[n].readonly && !filesave(edbuf[n].path, FALSE)) {
 		return FALSE;
 	}
 	history_set_line(edbuf[n].path, edbuf[n].se.ly);
@@ -688,10 +750,40 @@ bool fileclose(int n)
 	lists_clear();
 	CurrentFileNo = m;
 
+	if(duplicate_flag) {
+		if(n == duplicate_file_no || n == last_current_file_no) {
+			duplicate_flag = FALSE;
+		}
+	}
+	if(split_mode != splitNone) {
+		split_mode = splitNone;
+		split_file_no[splitFirst] = -1;
+		split_file_no[splitSecond] = -1;
+	}
+
 	return TRUE;
 }
 
-void n8_fin();
+void close_next()
+{
+	BackFileNo = -1;
+	if(open_type == openInput) {
+		term_cls();
+		CurrentFileNo = MAX_edbuf;
+		if(!exec_file_open(openModeNormal)) {
+			CurrentFileNo = -1;
+		}
+	} else if(open_type == openFiler) {
+		char fname[MAXEDITLINE + 1];
+
+		CurrentFileNo = -1;
+		term_cls();
+		fname[0] = '\0';
+		if(eff_filer(fname)) {
+			FileOpenOp(fname, openModeNormal);
+		}
+	}
+}
 
 bool exec_file_close()
 {
@@ -706,7 +798,7 @@ bool exec_file_close()
 		n = FindOutNextFile(CurrentFileNo);
 		if(n == -1 || !file_change(n)) {
 			history_add_file(path);
-			n8_fin();
+			close_next();
 		}
 	}
 	BackFileNo = FindOutNextFile(CurrentFileNo);
@@ -733,23 +825,41 @@ SHELL void op_file_aclose()
 			return;
 		}
 	}
-	history_add_file(edbuf[CurrentFileNo].path);
-	n8_fin();
+	close_next();
 }
 
 SHELL void op_file_quit()
 {
-	int i;
-	bool res;
+	int i, keep;
+	bool res, flag;
 	char path[LN_path + 1];
 
-	if(edbuf[CurrentFileNo].cf) {
-		res = keysel_yneq(QUIT_ARE_YOU_SURE_MSG);
-		if(res == ESCAPE|| !res) {
-			return;
+	CrtDrawAll();
+	system_guide();
+	keep = CurrentFileNo;
+	flag = FALSE;
+	for(CurrentFileNo = 0 ; CurrentFileNo < MAX_edbuf ; CurrentFileNo++) {
+		if(*edbuf[CurrentFileNo].path != '\0' && edbuf[CurrentFileNo].cf && !edbuf[CurrentFileNo].readonly) {
+			if(!flag) {
+				res = keysel_yneq(QUIT_SAVE_MSG);
+				if(res == ESCAPE) {
+					return;
+				} else if(!res) {
+					break;
+				}
+				flag = TRUE;
+			}
+			if(flag) {
+				filesave(edbuf[CurrentFileNo].path, TRUE);
+				history_add_file(edbuf[CurrentFileNo].path);
+			}
 		}
 	}
-	strcpy(path, edbuf[CurrentFileNo].path);
+	res = keysel_yneq(QUIT_END_MSG);
+	if(res == ESCAPE || !res) {
+		CurrentFileNo = keep;
+		return;
+	}
 	for(i = 0 ; i < MAX_edfiles ; i++) {
 		if(*edbuf[i].path == '\0') {
 			continue;
@@ -759,29 +869,31 @@ SHELL void op_file_quit()
 		edbuf_rm(i);
 		lists_clear();
 	}
-	history_add_file(path);
-	n8_fin();
+	CurrentFileNo = -1;
+	BackFileNo = -1;
 }
 
-void  op_file_undo()	/* 編集undo */
+void op_file_undo()	/* 編集undo */
 {
 	long lineOffset;
 	char pf[LN_path + 1];
 	bool res;
+
+	CrtDrawAll();
 
 	csr_leupdate();
 	if(!edbuf[CurrentFileNo].cf) {
 		return;
 	}
 	term_bell();
-	res = keysel_yneq(ARE_YOU_SURE_MSG);
+	res = keysel_yneq(DISCARD_TEXT_MSG);
 	if(res == ESCAPE|| !res) {
 		return;
 	}
 	strcpy(pf, edbuf[CurrentFileNo].path);
 	lineOffset = GetLineOffset();
 	FileStartInit(TRUE);
-	if(!fileopen(pf, (edbuf[CurrentFileNo].kc != edbuf[CurrentFileNo].open_kc) ? edbuf[CurrentFileNo].kc : -1)) {
+	if(fileopen(pf, (edbuf[CurrentFileNo].kc != edbuf[CurrentFileNo].open_kc) ? edbuf[CurrentFileNo].kc : -1, -1, openModeNormal) != openOK) {
 		edbuf_rm(CurrentFileNo);
 		lists_clear();
 		CurrentFileNo = BackFileNo;
@@ -790,47 +902,72 @@ void  op_file_undo()	/* 編集undo */
 	csr_setly(lineOffset);
 }
 
-static int file_menu_res = 0;
 void op_menu_file()
 {
 	int res;
 
-	res = menu_vselect(-1, -1, 9, MENU_OPEN_MSG, MENU_CLOSE_MSG, MENU_SAVE_MSG
-				, MENU_SAVEAS_MSG, MENU_CLOSE_AF_MSG
-				, MENU_RENAME_MSG, MENU_REFRESH_CF_MSG, MENU_ESCAPE_SHELL_MSG
-				, MENU_INSERT_OUTPUT_MSG);
+	if(sysinfo.newfilef) {
+		res = menu_vselect(MENU_FILE_MSG, 0, 2, menuFileMax, MENU_OPEN_MSG, MENU_CLOSE_MSG, MENU_SAVE_MSG
+					, MENU_NEW_FILE_MSG, MENU_READ_FILE_MSG, MENU_CLOSE_OPEN_MSG, MENU_RENAME_MSG, MENU_DUPLICATE_MSG
+					, MENU_UNDO_MSG, MENU_INSERT_MSG, MENU_ALL_CLOSE_MSG
+					, MENU_MISC_EXEC_MSG, MENU_INSERT_OUTPUT_MSG, MENU_QUIT_MSG);
+	} else {
+		res = menu_vselect(MENU_FILE_MSG, 0, 2, menuFileMax - 1, MENU_OPEN_MSG, MENU_CLOSE_MSG, MENU_SAVE_MSG
+					, MENU_READ_FILE_MSG, MENU_CLOSE_OPEN_MSG, MENU_RENAME_MSG, MENU_DUPLICATE_MSG
+					, MENU_UNDO_MSG, MENU_INSERT_MSG, MENU_ALL_CLOSE_MSG
+					, MENU_MISC_EXEC_MSG, MENU_INSERT_OUTPUT_MSG, MENU_QUIT_MSG);
+	}
+	if(!sysinfo.newfilef) {
+		if(res >= menuFileNew) {
+			res++;
+		}
+	}
 	switch(res) {
-		case 0:
+		case menuFileOpen:
 			op_file_open();
 			break;
-		case 1:
+		case menuFileClose:
 			op_file_close();
 			break;
-		case 2:
+		case menuFileSave:
 			op_file_save();
 			break;
-		case 3:
-			op_file_save_as();
+		case menuFileNew:
+			op_file_open_new();
 			break;
-		case 4:
-			op_file_aclose();
+		case menuFileReadonly:
+			op_file_open_readonly();
 			break;
-		case 5:
+		case menuFileCloseOpen:
+			op_file_copen();
+			break;
+		case menuFileRename:
 			RenameFile(CurrentFileNo, NULL);
 			break;
-		case 6:
+		case menuFileDuplicate:
+			op_file_duplicate();
+			break;
+		case menuFileUndo:
 			op_file_undo();
 			break;
-		case 7:
+		case menuFileInsert:
+			op_file_insert();
+			break;
+		case menuFileAllClose:
+			op_file_aclose();
+			break;
+		case menuFileMiscExec:
 			op_misc_exec();
 			break;
-		case 8:
+		case menuFileInsertOutput:
 			op_misc_insert_output();
 			break ;
-		default:	//!!
+		case menuFileQuit:
+			op_file_quit();
+			break ;
+		default:
 			return;
 	}
-	file_menu_res = res;
 }
 
 SHELL void op_file_copen()
@@ -838,7 +975,7 @@ SHELL void op_file_copen()
 	int n, m;
 
 	n = CurrentFileNo;
-	if(!exec_file_open()) {
+	if(!exec_file_open(openModeNormal)) {
 		return;
 	}
 	m = CurrentFileNo;
@@ -864,21 +1001,20 @@ char tmpbuff[MAX_edbuf][MAXLINESTR + 1];
 int SelectFileMenu()
 {
 	int i, j;
-	int m;
 	int res;
 	menu_t menu;
 
-	for(i = 0, j = 0, m = 0; i < MAX_edfiles; i++) {
+	menu_iteminit(&menu);
+	for(i = 0, j = 0 ; i < MAX_edfiles; i++) {
 		if(*edbuf[i].path == '\0') {
 			continue;
 		}
-		if(i < CurrentFileNo) {
-			m++;
+		sprintf(tmpbuff[j], "%d%c %-.*s", j + 1, edbuf[i].cf ? '*' : ' ', GetColWidth() - 6, edbuf[i].path);
+		if(j == CurrentFileNo) {
+			menu.cy = j;
 		}
-		sprintf(tmpbuff[j], "%-.*s %1s ", GetColWidth() - 6, edbuf[i].path ,(edbuf[i].cf ? "*" : ""));
 		j++;
 	}
-	menu_iteminit(&menu);
 	menu_itemmakelists(&menu, MAXLINESTR + 1, j, (char *)tmpbuff);
 	res = menu_select(&menu);
 	CrtDrawAll();
@@ -900,6 +1036,21 @@ void op_file_select()
 				j++;
 			}
 		}
+		if(split_mode != splitNone) {
+			if(split_file_no[splitFirst] != i && split_file_no[splitSecond] != i) {
+				if(split_file_no[splitFirst] == CurrentFileNo) {
+					split_file_no[splitFirst] = i;
+					CurrentFileNo = i;
+					BackFileNo = split_file_no[splitSecond];
+				} else {
+					split_file_no[splitSecond] = i;
+					CurrentFileNo = i;
+					BackFileNo = split_file_no[splitFirst];
+				}
+				csr_setdy(GetRow());
+				return;
+			}
+		}
 		file_change(i);
 	}
 }
@@ -907,4 +1058,47 @@ void op_file_select()
 SHELL void op_file_rename()
 {
 	RenameFile(CurrentFileNo, NULL);
+}
+
+SHELL void op_file_readonly()
+{
+	edbuf[CurrentFileNo].readonly = !edbuf[CurrentFileNo].readonly;
+}
+
+SHELL void op_file_duplicate()
+{
+	if(duplicate_flag) {
+		CurrentFileNo = duplicate_file_no;
+		edbuf_rm(CurrentFileNo);
+		lists_clear();
+		CurrentFileNo = last_current_file_no;
+		BackFileNo = last_back_file_no;
+		split_mode = splitNone;
+		split_file_no[splitFirst] = -1;
+		split_file_no[splitSecond] = -1;
+		duplicate_flag = FALSE;
+	} else {
+		char path[LN_path + 1];
+		last_current_file_no = CurrentFileNo;
+		last_back_file_no = BackFileNo;
+
+		strcpy(path, edbuf[CurrentFileNo].path);
+		if(!edbuf_add(path, FALSE)) {
+			return;
+		}
+		FileStartInit(TRUE);
+		if(fileopen(edbuf[CurrentFileNo].path, -1, edbuf[last_current_file_no].se.ly, openModeNormal) == openOK) {
+			edbuf[CurrentFileNo].readonly = TRUE;
+			duplicate_flag = TRUE;
+			duplicate_file_no = CurrentFileNo;
+			split_mode = splitNone;
+			BackFileNo = CurrentFileNo;
+			CurrentFileNo = last_current_file_no;
+			op_file_split();
+			return;
+		}
+		edbuf_rm(CurrentFileNo);
+		lists_clear();
+		CurrentFileNo = BackFileNo;
+	}
 }
