@@ -94,7 +94,7 @@ bool no_regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool nocas
 		return FALSE;
 	}
 	rmp->rm_so = p - s;
-	rmp->rm_eo = strlen(t) - rmp->rm_so;
+	rmp->rm_eo = rmp->rm_so + strlen(t);
 	return TRUE;
 }
 
