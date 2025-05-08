@@ -36,6 +36,7 @@
 #include "config.h"
 
 #include <stdio.h>
+#define __USE_GNU
 #include <string.h>
 #include <sys/types.h>
 
@@ -45,8 +46,7 @@
 
 /* ¸¡º÷ */
 
-#ifdef HAVE_REGCOMP
-bool regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool f)
+bool regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool nocasef)
 {
 	static char regexp_str[1024 + 1]={""};
 	static bool regexp_casef;
@@ -54,16 +54,16 @@ bool regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool f)
 
 	int a;
 
-	if(strcmp(t, regexp_str) != 0 || f != regexp_casef) {
+	if(strcmp(t, regexp_str) != 0 || nocasef != regexp_casef) {
 		if(*regexp_str != '\0') {
 			regfree(&regexp_exp);
 		}
-		a = f ? REG_EXTENDED | REG_ICASE : REG_EXTENDED;
+		a = nocasef ? REG_EXTENDED | REG_ICASE : REG_EXTENDED;
 		if(regcomp(&regexp_exp, t, a) != 0) {
 			return FALSE;
 		}
 		strcpy(regexp_str, t);
-		regexp_casef = f;
+		regexp_casef = nocasef;
 	}
 /*
 	rmp->rm_so = x;
@@ -81,13 +81,15 @@ bool regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool f)
 	return TRUE;
 }
 
-#else
-
-bool regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool f)
+bool no_regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool nocasef)
 {
 	const char *p;
 
-	p = strstr(s + x, t);
+	if(nocasef) {
+		p = strcasestr(s + x, t);
+	} else {
+		p = strstr(s + x, t);
+	}
 	if(p == NULL) {
 		return FALSE;
 	}
@@ -95,14 +97,16 @@ bool regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool f)
 	rmp->rm_eo = strlen(t) - rmp->rm_so;
 	return TRUE;
 }
-#endif
 
-bool regexp_seeknext(const char *s, const char *t, int x, regm_t *rmp, bool f)
+bool regexp_seeknext(const char *s, const char *t, int x, regm_t *rmp, bool regf, bool nocasef)
 {
-	return *t != '\0' && regexp_exec(s, x, t, rmp, f);
+	if(regf) {
+		return *t != '\0' && regexp_exec(s, x, t, rmp, nocasef);
+	}
+	return *t != '\0' && no_regexp_exec(s, x, t, rmp, nocasef);
 }
 
-bool regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, bool f)
+bool regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, bool regf, bool nocasef)
 {
 	regm_t rm;
 
@@ -115,8 +119,14 @@ bool regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, bool f)
 	rmp->rm_so = -1;
 	rm.rm_so = 0;
 	for(;;) {
-		if(!regexp_exec(s, rm.rm_so, t, &rm, f)) {
-			break;
+		if(regf) {
+			if(!regexp_exec(s, rm.rm_so, t, &rm, nocasef)) {
+				break;
+			}
+		} else {
+			if(!no_regexp_exec(s, rm.rm_so, t, &rm, nocasef)) {
+				break;
+			}
 		}
 		if(rm.rm_so > x) {
 			break;

@@ -44,5 +44,5 @@ typedef struct
 } regm_t;
 #endif
 
-extern bool regexp_seeknext(const char *s, const char *t, int x, regm_t *rmp, bool f);
-extern bool regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, bool f);
+extern bool regexp_seeknext(const char *s, const char *t, int x, regm_t *rmp, bool regf, bool casef);
+extern bool regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, bool regf, bool casef);
