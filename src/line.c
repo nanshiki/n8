@@ -300,7 +300,7 @@ SHELL void op_char_input()
 	int c;
 
 	putDoubleKey(CNTRL('P'));
-	system_guide();	// !!
+	system_guide();
 	system_msg(CNTRL_INPUT_MSG);
 
 	c = term_inkey();
@@ -360,7 +360,7 @@ void tagJmp()
 /*	if(FileOpenOp(tagFileName))
 		csr_setly(atol(tagJmpNoBuff));*/
 
-	FileOpenOp(tagFileName);
+	FileOpenOp(tagFileName, openModeNormal);
 	csr_setly(atol(tagJmpNoBuff));
 }
 
@@ -379,7 +379,7 @@ SHELL void op_jump_line()
 		n = atoi(keyf_getarg(0));
 	} else {
 		*buf = '\0';
-		if(GetS(LINE_NUMBER_MSG, buf) == ESCAPE) {
+		if(GetS(LINE_NUMBER_MSG, buf, 16) == ESCAPE) {
 		 	return;
 		}
 		n = atol(buf);
@@ -452,17 +452,17 @@ void udbuf_init()
 	HistoryData *hi;
 
 	hi = history_make_data("");
-	history_append_last(UNDO_SYSTEM, hi);
+	history_append_last(historyUndo, hi);
 }
 
 void udbuf_get(char *s)
 {
 	HistoryData *hi;
 
-	hi = history_get_last(UNDO_SYSTEM);
+	hi = history_get_last(historyUndo);
 	strcpy(s, hi->buffer);	// buffer
 	if(*s != '\0') {
-		history_delete_list(UNDO_SYSTEM, hi);
+		history_delete_list(historyUndo, hi);
 	}
 }
 
@@ -471,13 +471,13 @@ void udbuf_set(bool df, const char *s)
 	HistoryData *hi;
 	char buf[MAXEDITLINE + 1];
 
-	if(history_get_last_count(UNDO_SYSTEM) >= MAX_udbuf) {
-		history_delete_list(UNDO_SYSTEM, history_get_top(UNDO_SYSTEM)->next);
+	if(history_get_last_count(historyUndo) >= MAX_udbuf) {
+		history_delete_list(historyUndo, history_get_top(historyUndo)->next);
 	}
 	buf[0] = df ? '1' : '2';
 	strcpy(buf + 1, s);
 	hi = history_make_data(buf);
-	history_append_last(UNDO_SYSTEM, hi);
+	history_append_last(historyUndo, hi);
 }
 
 void undo_add(bool df, const char *s)
