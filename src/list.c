@@ -21,9 +21,9 @@
 static EditLine BaseLine[MAX_edbuf];
 static EditLine *LastLine[MAX_edbuf];
 static long LastOffset[MAX_edbuf];
-static HistoryData BaseHistory[HISTORY_MAX];
-static HistoryData *LastHistory[HISTORY_MAX];
-static long LastCount[HISTORY_MAX];
+static HistoryData BaseHistory[historyMax];
+static HistoryData *LastHistory[historyMax];
+static long LastCount[historyMax];
 
 long GetTopNumber()
 {
@@ -69,7 +69,7 @@ void lists_init()
 		LastLine[i] = &BaseLine[i];
 		LastOffset[i] = 0;
 	}
-	for(i = 0 ; i < HISTORY_MAX ; ++i) {
+	for(i = 0 ; i < historyMax ; ++i) {
 		BaseHistory[i].prev = NULL;
 		BaseHistory[i].next = NULL;
 		BaseHistory[i].buffer = NULL;
@@ -373,7 +373,7 @@ HistoryData *history_get_file(char *filename)
 {
 	HistoryData *hi;
 
-	hi = BaseHistory[FOPEN_SYSTEM].next;
+	hi = BaseHistory[historyOpen].next;
 	while(hi != NULL) {
 		if(!strcmp(hi->buffer, filename)) {
 			return hi;
@@ -418,19 +418,19 @@ int history_add_file(char *filename)
 	}
 	if((hi = history_get_file(filename)) == NULL) {
 		hi = history_make_data(filename);
-		LastCount[FOPEN_SYSTEM]++;
+		LastCount[historyOpen]++;
 	}
-	if(LastHistory[FOPEN_SYSTEM] != hi) {
+	if(LastHistory[historyOpen] != hi) {
 		if(hi->next != NULL) {
 			hi->next->prev = hi->prev;
 		}
 		if(hi->prev != NULL) {
 			hi->prev->next = hi->next;
 		}
-		LastHistory[FOPEN_SYSTEM]->next = hi;
+		LastHistory[historyOpen]->next = hi;
 		hi->next = NULL;
-		hi->prev = LastHistory[FOPEN_SYSTEM];
-		LastHistory[FOPEN_SYSTEM] = hi;
+		hi->prev = LastHistory[historyOpen];
+		LastHistory[historyOpen] = hi;
 	}
 	return hi->line;
 }
@@ -443,8 +443,8 @@ void history_save_file()
 	sysinfo_path(path, N8_HISTORY_FILE);
 	if((fp = fopen(path, "w")) != NULL) {
 		int count = 0;
-		HistoryData *hi = LastHistory[FOPEN_SYSTEM];
-		while(hi != NULL && count < LastCount[FOPEN_SYSTEM] && count < sysinfo.file_history_count) {
+		HistoryData *hi = LastHistory[historyOpen];
+		while(hi != NULL && count < LastCount[historyOpen] && count < sysinfo.file_history_count) {
 			fprintf(fp, "%s,%d\n", hi->buffer, hi->line);
 			hi = hi->prev;
 			count++;
@@ -469,16 +469,16 @@ void history_load_file()
 				if((pt = strtok(NULL, ",")) != NULL) {
 					if(isdigit(*pt)) {
 						hi->line = atoi(pt);
-						hi->next = BaseHistory[FOPEN_SYSTEM].next;
+						hi->next = BaseHistory[historyOpen].next;
 						if(hi->next != NULL) {
 							hi->next->prev = hi;
 						}
-						hi->prev = &BaseHistory[FOPEN_SYSTEM];
-						BaseHistory[FOPEN_SYSTEM].next = hi;
-						if(LastCount[FOPEN_SYSTEM] == 0) {
-							LastHistory[FOPEN_SYSTEM] = hi;
+						hi->prev = &BaseHistory[historyOpen];
+						BaseHistory[historyOpen].next = hi;
+						if(LastCount[historyOpen] == 0) {
+							LastHistory[historyOpen] = hi;
 						}
-						LastCount[FOPEN_SYSTEM]++;
+						LastCount[historyOpen]++;
 					}
 				}
 			}
