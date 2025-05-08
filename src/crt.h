@@ -27,3 +27,4 @@ void system_guide_reinit();
 void system_guide();
 dspfmt_t *dspreg_sysmsg(void *vp, int a, int sizex, int sizey);
 void system_msg(const char *buffer);
+int get_split_start(int split);

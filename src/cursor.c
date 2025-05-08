@@ -58,7 +58,7 @@ void csr_fix()
 void csr_lenew()
 {
 	strcpy(csrle.buf, GetList(GetLineOffset())->buffer);
-	csrle.dsize = GetColWidth()- NumWidth;	// !!
+	csrle.dsize = GetColWidth() - NumWidth;
 }
 
 void csr_leupdate()
@@ -161,15 +161,16 @@ void csr_setdy(int dy)
 
 void CursorMove()
 {
-#if 0
-	if(csrle.lx == strlen(csrle.buf) && csrse.ly < GetLastNumber() && sysinfo.crmarkf) {
-		term_locate(GetRow(), GetCol() + NumWidth);
-		term_color_normal();
-		term_putch(' ');		/* 行末マークを消す。 */
-		csrse.gf = TRUE;
+	int x = GetCol() + NumWidth;
+	int y = GetRow();
+
+	if(split_mode == splitVertical && CurrentFileNo == split_file_no[splitRight]) {
+		x += get_split_start(splitVertical);
 	}
-#endif
-	term_locate(GetRow(), GetCol() + NumWidth);
+	if(split_mode == splitHorizon && CurrentFileNo == split_file_no[splitLower]) {
+		y += get_split_start(splitHorizon);
+	}
+	term_locate(y, x);
 }
 
 SHELL void op_cursor_up()
