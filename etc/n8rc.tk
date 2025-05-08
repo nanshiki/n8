@@ -2,24 +2,31 @@
 
 # オプション設定
 !R	Val
-  Japanese      = On      #   (on/off)表示メッセージの言語
-  AutoIndent    = On      #Ei (on/off)オートインデント
-  Backfile      = Off     #Eb (on/off)ファイルのバックアップ
-  NoCase        = On      #   (on/off)検索文字の大文字・小文字の区別無し
-  Number        = Off     #Dl (on/off)行番号を表示する
-  OverWrite     = Off     #   (on/off)上書き/挿入
-  TabMark       = Off     #Dt (on/off)タブ記号を ">" マークで表示する
-  TabStop       = 4       #Ta <number>タブストップ数を指定する
-  PasteMove     = On      #   (on/off)ペーストでカーソル移動
-  AnsiColor     = On      #   (on/off)ANSI エスケープシーケンスの色を使う
-  UnderLine     = On      #   (on/off)カーソル行にアンダーラインを表示する
-  Ambiguous     = 2       #   (1/2/emoji2)曖昧文字幅表示設定
+  CrMark        = On      # (on/off)CR/LF を表示
+  TabMark       = Off     # (on/off)タブ記号を ">" マークで表示
+  Number        = Off     # (on/off)行番号を表示する
+  ZenSpace      = Off     # (on/off)全角スペース表示
+  SystemInfo    = Off     # (on/off)システム情報表示
+  UnderLine     = On      # (on/off)カーソル行にアンダーラインを表示する
+  AutoIndent    = On      # (on/off)オートインデント
+  Backfile      = Off     # (on/off)ファイルのバックアップ
+  PasteMove     = On      # (on/off)ペーストでカーソル移動
+  Japanese      = On      # (on/off)表示メッセージの言語
+  TabStop       = 4       # <number>タブストップ数を指定する
+  OverWrite     = Off     # (on/off)上書き/挿入
+  SearchWord    = Off     # (on/off)ワードサーチ
+  NoCase        = On      # (on/off)検索文字の大文字・小文字の区別無し
+  SearchReg     = On      # (on/off)検索での正規表現使用
+  AnsiColor     = On      # (on/off)ANSI エスケープシーケンスの色を使う
+  NewFile       = Off     # (on/off)新規ファイルオープン時に問い合わせ
+  Ambiguous     = 1       # (1/2/emoji2)曖昧文字幅表示設定
+  FrameChar     = Frame   # (NoChar/ASCII/Frame/TeraTerm)枠文字
 
 # キーコンフィグ
 #   /usr/local/etc/n8/ などのディレクトリに、
 #   key.vz などの定義ファイルの本体があります。
-#   キーアサイン等をいじる場合は、それを適当に
-#   ~/.n8/ にコピーしてからいじってみてください。
+#   キーアサイン等を変更する場合は、それらを
+#   ~/.n8/ にコピーしてから変更してください。
 
 !I	key.tk            #editor keybind
 !I	key.system        #system keybind
@@ -28,4 +35,4 @@
 #オプション設定
 !R	Val
 
-  CRMark        = ${AnsiColor}  #Dc (on/off)行末記号を表示する
+  CRMark        = ${AnsiColor}  # (on/off)行末記号を表示する
