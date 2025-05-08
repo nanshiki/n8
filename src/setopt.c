@@ -25,22 +25,31 @@
 #include <regex.h>
 
 enum {
-	optionNumber,
-	optionOverWrite,
-	optionAutoIndent,
-	optionTabStop,
-	optionTabMark,
 	optionCrMark,
+	optionTabMark,
+	optionEofMark,
+	optionNumber,
+	optionZenSpace,
+	optionSystemInfo,
 	optionUnderLine,
-	optionNoCase,
-	optionPasteMove,
+	optionAutoIndent,
 	optionBackup,
+	optionPasteMove,
 	optionJapanese,
 	optionKanjiCode,
 	optionRetMode,
 	optionAmbiguous,
+	optionTabStop,
 
 	optionMax
+};
+
+enum {
+	optionSearchWord,
+	optionSearchNoCase,
+	optionSearchReg,
+
+	optionSearchMax
 };
 
 static char *opt_kc[] = {"EUC", "JIS", "ShiftJIS", "UTF-8", "UTF-8 BOM" };
@@ -440,33 +449,32 @@ void dir_init()
 	char *p;
 
 	clear_string_item(itemDir);
-	add_string_item(itemDir, "0) ~ <home dir>");
+	add_string_item(itemDir, "0 ~ <home dir>");
 	if((p = getenv("N8_PATH")) != NULL) {
 		char str[MAXLINESTR + 1];
 		char count = '1';
 		int length;
 
-		length = 3;
+		length = 2;
 		str[0] = count++;
-		str[1] = ')';
-		str[2] = ' ';
+		str[1] = ' ';
 		while(*p != '\0') {
 			if(*p == ':') {
-				if(length > 3) {
+				if(length > 2) {
 					str[length] = '\0';
 					add_string_item(itemDir, str);
 					str[0] = count++;
-					length = 3;
+					length = 2;
 					if(count > '9') {
 						break;
 					}
 				}
-			} else {
+			} else if(length < MAXLINESTR) {
 				str[length++] = *p;
 			}
 			p++;
 		}
-		if(length > 3) {
+		if(length > 2) {
 			str[length] = '\0';
 			add_string_item(itemDir, str);
 		}
@@ -523,12 +531,34 @@ void sysinfo_optset()
 	sysinfo.backupf     = hash_istrue(sysinfo.vp_def, "backup");
 	sysinfo.autoindentf = hash_istrue(sysinfo.vp_def, "autoindent");
 	sysinfo.nocasef     = hash_istrue(sysinfo.vp_def, "nocase");
+	sysinfo.searchregf  = hash_istrue(sysinfo.vp_def, "searchreg");
+	sysinfo.searchwordf = hash_istrue(sysinfo.vp_def, "searchword");
 	sysinfo.overwritef  = hash_istrue(sysinfo.vp_def, "overwrite");
 	sysinfo.numberf     = hash_istrue(sysinfo.vp_def, "number");
 	sysinfo.pastemovef  = hash_istrue(sysinfo.vp_def, "pastemove");
 	sysinfo.underlinef  = hash_istrue(sysinfo.vp_def, "underline");
 	sysinfo.nfdf        = hash_istrue(sysinfo.vp_def, "nfd");
 	sysinfo.maskregf    = hash_istrue(sysinfo.vp_def, "maskreg");
+	sysinfo.eoff        = hash_istrue(sysinfo.vp_def, "eof");
+	sysinfo.zenspacef   = hash_istrue(sysinfo.vp_def, "zenspace");
+	sysinfo.systeminfof = hash_istrue(sysinfo.vp_def, "systeminfo");
+	sysinfo.newfilef    = hash_istrue(sysinfo.vp_def, "newfile");
+	if((p = hash_get(sysinfo.vp_def, "zenspacechar")) != NULL) {
+		int len = kanji_countbuf(p);
+		if(len == 3) {
+			memcpy(sysinfo.zenspacechar, p, len);
+		}
+	}
+	sysinfo.framechar = frameCharNothing;
+	if((p = hash_get(sysinfo.vp_def, "framechar")) != NULL) {
+		if(!strcasecmp(p, "ascii")) {
+			sysinfo.framechar = frameCharASCII;
+		} else if(!strcasecmp(p, "frame")) {
+			sysinfo.framechar = frameCharFrame;
+		} else if(!strcasecmp(p, "teraterm") || !strcasecmp(p, "tera")) {
+			sysinfo.framechar = frameCharTeraTerm;
+		}
+	}
 	sysinfo.ambiguous = AM_FIX2;
 	if((p = hash_get(sysinfo.vp_def, "ambiguous")) != NULL) {
 		if(*p == '1') {
@@ -537,7 +567,7 @@ void sysinfo_optset()
 			sysinfo.ambiguous = AM_EMOJI2;
 		}
 	}
-	term_set_ambiguous(sysinfo.ambiguous);
+	term_set_ambiguous(sysinfo.ambiguous | ((sysinfo.framechar == frameCharTeraTerm) ? AM_TERATERM : 0));
 
 	f = hash_istrue(sysinfo.vp_def, "Color256");
 	if(hash_istrue(sysinfo.vp_def, "AnsiColor") || f) {
@@ -553,6 +583,10 @@ void sysinfo_optset()
 	sysinfo.c_ctrl      = term_cftocol(hash_get(sysinfo.vp_def, "col_ctrl"));
 	sysinfo.c_crmark    = term_cftocol(hash_get(sysinfo.vp_def, "col_crmark"));
 	sysinfo.c_tab       = term_cftocol(hash_get(sysinfo.vp_def, "col_tab"));
+	sysinfo.c_zenspace  = term_cftocol(hash_get(sysinfo.vp_def, "col_zenspace"));
+	sysinfo.c_statusbar = term_cftocol(hash_get(sysinfo.vp_def, "col_statusbar"));
+	sysinfo.c_readonly  = term_cftocol(hash_get(sysinfo.vp_def, "col_readonly"));
+	sysinfo.c_frame     = term_cftocol(hash_get(sysinfo.vp_def, "col_frame"));
 
 	sysinfo.c_sysmsg    = term_cftocol(hash_get(sysinfo.vp_def, "col_sysmsg"));
 	sysinfo.c_search    = term_cftocol(hash_get(sysinfo.vp_def, "col_search"));
@@ -594,20 +628,24 @@ SHELL void op_opt_set()
 void opt_default()
 {
 	char *env;
+	char code[4] = { (char)0xe3, (char)0x83, (char)0xad, 0 };
 
 	hash_set(sysinfo.vp_def, "TabStop", "8");
 	hash_set(sysinfo.vp_def, "tabcode", ">");
-	hash_set(sysinfo.vp_def, "Japanese", "true");
-	hash_set(sysinfo.vp_def, "AutoIndent", "true");
-	hash_set(sysinfo.vp_def, "ansicolor", "true");
+	hash_set(sysinfo.vp_def, "Japanese", "on");
+	hash_set(sysinfo.vp_def, "AutoIndent", "on");
+	hash_set(sysinfo.vp_def, "ansicolor", "on");
 	if((env = getenv("LANG")) != NULL) {
 		hash_set(sysinfo.vp_def, "Locale", env);
 	} else {
 		hash_set(sysinfo.vp_def, "Locale", "ja_JP.UTF-8");
 	}
-	hash_set(sysinfo.vp_def, "nfd", "true");
-	hash_set(sysinfo.vp_def, "maskreg", "false");
+	hash_set(sysinfo.vp_def, "nfd", "on");
+	hash_set(sysinfo.vp_def, "eof", "on");
+	hash_set(sysinfo.vp_def, "newfile", "on");
+	hash_set(sysinfo.vp_def, "zenspacechar", code);
 	hash_set(sysinfo.vp_def, "ambiguous", "2");
+	hash_set(sysinfo.vp_def, "framechar", "ascii");
 	hash_set_int(sysinfo.vp_def, "FileHistoryCount", DEFAULT_FILE_HISTORY_COUNT);
 	hash_set(sysinfo.vp_def, "sort", "filename");
 
@@ -616,46 +654,102 @@ void opt_default()
 	hash_set(sysinfo.vp_def, "col_ctrl", "4");
 	hash_set(sysinfo.vp_def, "col_crmark", "4");
 	hash_set(sysinfo.vp_def, "col_tab", "4");
-	hash_set(sysinfo.vp_def, "col_sysmsg", "B");
+	hash_set(sysinfo.vp_def, "col_zenspace", "4");
+	hash_set(sysinfo.vp_def, "col_readonly", "6R");
+	hash_set(sysinfo.vp_def, "col_statusbar", "R");
+	hash_set(sysinfo.vp_def, "col_frame", "R");
+	hash_set(sysinfo.vp_def, "col_sysmsg", "3B");
 	hash_set(sysinfo.vp_def, "col_search", "3R");
-	hash_set(sysinfo.vp_def, "col_menuc", "6R");
-	hash_set(sysinfo.vp_def, "col_eff_dirc", "3R");
+	hash_set(sysinfo.vp_def, "col_menuc", "");
+	hash_set(sysinfo.vp_def, "col_menun", "R");
+	hash_set(sysinfo.vp_def, "col_eff_dirc", "1R");
 	hash_set(sysinfo.vp_def, "col_eff_dirn", "6");
-	hash_set(sysinfo.vp_def, "col_eff_normc", "3R");
+	hash_set(sysinfo.vp_def, "col_eff_normc", "1R");
+	hash_set(sysinfo.vp_def, "col_eff_normn", "");
 }
 
-void option_set_proc(int a, mitem_t *mip, void *vp)	// !!!!
+void search_option_set_proc(int a, mitem_t *mip, void *vp)
 {
 	switch(a) {
-	case optionNumber:
-		sprintf(mip->str, "%s%-9s", OPT_NUMBER_MSG, (hash_istrue(sysinfo.vp_def, "number") ? "ON" : "OFF"));
+	case optionSearchWord:
+		sprintf(mip->str, "%s%-9s", SEARCH_WORD_MSG, (hash_istrue(sysinfo.vp_def, "searchword") ? "ON" : "OFF"));
 		break;
-	case optionOverWrite:
-		sprintf(mip->str, "%s%-9s", OPT_INPUT_MODE_MSG, (hash_istrue(sysinfo.vp_def, "overwrite") ? "ON" : "OFF"));
+	case optionSearchNoCase:
+		sprintf(mip->str, "%s%-9s", SEARCH_NOCASE_MSG, (hash_istrue(sysinfo.vp_def, "nocase") ? SEARCH_NOCASE_ITEM : SEARCH_CASE_ITEM));
 		break;
-	case optionAutoIndent:
-		sprintf(mip->str, "%s%-9s", OPT_AUTOINDENT_MODE_MSG, (hash_istrue(sysinfo.vp_def, "autoindent") ? "ON" : "OFF"));
+	case optionSearchReg:
+		sprintf(mip->str, "%s%-9s", SEARCH_REG_MSG, (hash_istrue(sysinfo.vp_def, "searchreg") ? "ON" : "OFF"));
 		break;
-	case optionTabStop:
-		sprintf(mip->str, "%s%-9d", OPT_TAB_STOP_MSG, atoi(hash_get(sysinfo.vp_def, "TabStop")));
+	}
+}
+
+void search_option(int x, int y)
+{
+	menu_t menu;
+	int res = 0;
+
+	menu_iteminit(&menu);
+	menu.title = SEARCH_OPTION_MSG;
+	menu.cy = res;
+	menu.drp->x = x + 1;
+	if(check_frame_ambiguous2() && (menu.drp->x & 1)) {
+		menu.drp->x--;
+	}
+	menu.drp->y = y;
+	if(menu.drp->y > dspall.sizey - optionSearchMax - 3) {
+		menu.drp->y = dspall.sizey - optionSearchMax - 3;
+	}
+	menu_itemmake(&menu, search_option_set_proc, optionSearchMax, NULL);
+	res = menu_select(&menu);
+	menu_itemfin(&menu);
+
+	switch(res) {
+	case optionSearchWord:
+		opt_set("searchword", NULL);
+		break;
+	case optionSearchNoCase:
+		opt_set("nocase", NULL);
+		break;
+	case optionSearchReg:
+		opt_set("searchreg", NULL);
+		break;
+	}
+	CrtDrawAll();
+}
+
+
+void option_set_proc(int a, mitem_t *mip, void *vp)
+{
+	switch(a) {
+	case optionCrMark:
+		sprintf(mip->str, "%s%-9s", OPT_CR_MARK_MSG, (hash_istrue(sysinfo.vp_def, "crmark") ? "ON" : "OFF"));
 		break;
 	case optionTabMark:
 		sprintf(mip->str, "%s%-9s", OPT_TAB_MARK_MSG, (hash_istrue(sysinfo.vp_def, "tabmark") ? "ON" : "OFF"));
 		break;
-	case optionCrMark:
-		sprintf(mip->str, "%s%-9s", OPT_CR_MARK_MSG, (hash_istrue(sysinfo.vp_def, "crmark") ? "ON" : "OFF"));
+	case optionEofMark:
+		sprintf(mip->str, "%s%-9s", OPT_EOF_MARK_MSG, (hash_istrue(sysinfo.vp_def, "eof") ? "ON" : "OFF"));
+		break;
+	case optionNumber:
+		sprintf(mip->str, "%s%-9s", OPT_NUMBER_MSG, (hash_istrue(sysinfo.vp_def, "number") ? "ON" : "OFF"));
+		break;
+	case optionZenSpace:
+		sprintf(mip->str, "%s%-9s", OPT_ZEN_SPACE_MSG, (hash_istrue(sysinfo.vp_def, "zenspace") ? "ON" : "OFF"));
+		break;
+	case optionSystemInfo:
+		sprintf(mip->str, "%s%-9s", OPT_STATUS_SYSTEM_MSG, (hash_istrue(sysinfo.vp_def, "systeminfo") ? "ON" : "OFF"));
 		break;
 	case optionUnderLine:
 		sprintf(mip->str, "%s%-9s", OPT_UNDERLINE_MSG,  (hash_istrue(sysinfo.vp_def, "underline") ? "ON" : "OFF"));
 		break;
-	case optionNoCase:
-		sprintf(mip->str, "%s%-9s", OPT_SEARCH_CH_MSG, (hash_istrue(sysinfo.vp_def, "nocase") ? "OFF" : "ON"));
-		break;
-	case optionPasteMove:
-		sprintf(mip->str, "%s%-9s", OPT_PASTE_MOVE_MSG,  (hash_istrue(sysinfo.vp_def, "pastemove") ? "ON" : "OFF"));
+	case optionAutoIndent:
+		sprintf(mip->str, "%s%-9s", OPT_AUTOINDENT_MODE_MSG, (hash_istrue(sysinfo.vp_def, "autoindent") ? "ON" : "OFF"));
 		break;
 	case optionBackup:
 		sprintf(mip->str, "%s%-9s", OPT_BACKUP_MSG, (hash_istrue(sysinfo.vp_def, "backup") ? "ON" : "OFF"));
+		break;
+	case optionPasteMove:
+		sprintf(mip->str, "%s%-9s", OPT_PASTE_MOVE_MSG,  (hash_istrue(sysinfo.vp_def, "pastemove") ? "ON" : "OFF"));
 		break;
 	case optionJapanese:
 		sprintf(mip->str, "%s%-9s", OPT_MESSAGE_MSG, (hash_istrue(sysinfo.vp_def, "Japanese") ? "ON" : "OFF"));
@@ -664,10 +758,13 @@ void option_set_proc(int a, mitem_t *mip, void *vp)	// !!!!
 		sprintf(mip->str, "%s%-9s", OPT_KANJICODE_MSG, opt_kc[edbuf[CurrentFileNo].kc]);
 		break;
 	case optionRetMode:
-		sprintf(mip->str, "%s%-9s", "R)CR/LF                  : ", opt_rm[edbuf[CurrentFileNo].rm]);
+		sprintf(mip->str, "%s%-9s", "R CR/LF                  ", opt_rm[edbuf[CurrentFileNo].rm]);
 		break;
 	case optionAmbiguous:
 		sprintf(mip->str, "%s%-9s", OPT_AMBIGUOUS_MSG, opt_am[sysinfo.ambiguous]);
+		break;
+	case optionTabStop:
+		sprintf(mip->str, "%s%-9d", OPT_TAB_STOP_MSG, atoi(hash_get(sysinfo.vp_def, "TabStop")));
 		break;
 	}
 }
@@ -681,6 +778,7 @@ void SeeOption()
 	sprintf(title, "n8 Version %.4s", VER);
 	do {
 		menu_iteminit(&menu);
+		menu.drp->y = 2;
 		menu.cy = res;
 		menu.title = title;
 		menu_itemmake(&menu, option_set_proc, optionMax, NULL);
@@ -688,41 +786,44 @@ void SeeOption()
 		menu_itemfin(&menu);
 
 		switch(res) {
-		case optionNumber:
-			opt_set("number", NULL);
-			break;
-		case optionOverWrite:
-			opt_set("overwrite", NULL);
-			break;
-		case optionAutoIndent:
-			opt_set("autoindent", NULL);
-			break;
-		case optionTabStop:
-			op_opt_tab();
+		case optionCrMark:
+			opt_set("crmark", NULL);
 			break;
 		case optionTabMark:
 			opt_set("tabmark", NULL);
 			break;
-		case optionCrMark:
-			opt_set("crmark", NULL);
+		case optionEofMark:
+			opt_set("eof", NULL);
+			break;
+		case optionNumber:
+			opt_set("number", NULL);
+			break;
+		case optionZenSpace:
+			opt_set("zenspace", NULL);
+			break;
+		case optionSystemInfo:
+			opt_set("systeminfo", NULL);
 			break;
 		case optionUnderLine:
 			opt_set("underline", NULL);
 			break;
-		case optionNoCase:
-			opt_set("NoCase", NULL);
-			break;
-		case optionPasteMove:
-			opt_set("pastemove", NULL);
+		case optionAutoIndent:
+			opt_set("autoindent", NULL);
 			break;
 		case optionBackup:
 			opt_set("backup", NULL);
+			break;
+		case optionPasteMove:
+			opt_set("pastemove", NULL);
 			break;
 		case optionJapanese:
 			opt_set("Japanese", NULL);
 			break;
 		case optionKanjiCode:
 			op_opt_kanji();
+			break;
+		case optionRetMode:
+			op_opt_retmode();
 			break;
 		case optionAmbiguous:
 			{
@@ -734,12 +835,12 @@ void SeeOption()
 				sysinfo_optset();
 			}
 			break;
-		case optionRetMode:
-			op_opt_retmode();
+		case optionTabStop:
+			op_opt_tab();
 			break;
 		}
 		CrtDrawAll();
-	} while(res != -1);
+	} while(res == optionKanjiCode || res == optionRetMode || res == optionAmbiguous);
 }
 
 SHELL void op_menu_opt()
@@ -900,7 +1001,7 @@ void config_read(char *path)
 			if(mode == 3) {
 				mode = 2;
 				++name_num;
-				if(name_num < MAX_nbuf) { // !!
+				if(name_num < MAX_nbuf) {
 					p = name_buf[name_num];
 					*p = '\0';
 				}
@@ -911,7 +1012,7 @@ void config_read(char *path)
 			if(mode == 6) {
 				mode = 5;
 				++val_num;
-				if(val_num < MAX_nbuf) { // !!
+				if(val_num < MAX_nbuf) {
 					p = val_buf[val_num];
 					*p = '\0';
 				}
@@ -978,7 +1079,7 @@ void config_read(char *path)
 				continue;
 			}
 			ex_flag = FALSE;
-			*p++ = c;								// !! buffer overrun.
+			*p++ = c;
 			*p = '\0';
 		}
 

@@ -93,6 +93,12 @@ SHELL	void	op_file_undo();
 SHELL	void	op_file_rename();
 SHELL	void	op_file_quit();
 
+SHELL	void	op_file_split();
+SHELL	void	op_file_splitmove();
+SHELL	void	op_file_readonly();
+SHELL	void	op_file_duplicate();
+SHELL	void	op_file_open_new();
+SHELL	void	op_file_open_readonly();
 
 
 // region 1

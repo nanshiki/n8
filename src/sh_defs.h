@@ -2,7 +2,7 @@
 #define	__SH_DEF_H_
 
 #define	MAX_region	3
-#define	MAX_func	68
+#define	MAX_func	74
 
 enum {
 	 KF_cursor_up,
@@ -72,7 +72,13 @@ enum {
 	 KF_file_copen,
 	 KF_file_undo,
 	 KF_file_rename,
-	 KF_file_quit
+	 KF_file_quit,
+	 KF_file_readonly,
+	 KF_file_duplicate,
+	 KF_file_split,
+	 KF_file_splitmove,
+	 KF_file_open_new,
+	 KF_file_open_readonly,
 };
 
 enum {
@@ -94,7 +100,8 @@ enum {
 	 KF_SysCursordown,
 	 KF_SysCursorleft,
 	 KF_SysCursorright,
-	 KF_SysEscape
+	 KF_SysEscape,
+	 KF_SysOptionMenu
 };
 
 enum {
@@ -118,7 +125,8 @@ enum {
 	 KF_EffSortMenu,
 	 KF_EffMaskMenu,
 	 KF_EffDirMenu,
-	 KF_EffMaskClear
+	 KF_EffMaskClear,
+	 KF_EffRedraw
 };
 
 #endif
