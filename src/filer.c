@@ -142,7 +142,7 @@ void fw_init(fw_t *fwp, const char *s, int a)
 	fwp->findex = NULL;
 
 	menu_iteminit(&fwp->menu);
-	fwp->menu.title = fwp->path;
+	fwp->menu.title = fwp->title;
 
 	fwp->menu.drp->sizex = term_sizex() / 2;
 	if(sysinfo.framechar >= frameCharFrame) {
@@ -202,6 +202,14 @@ fitem_t *fw_getfi(fw_t *fwp, int a)
 	return fwp->findex[a];
 }
 
+void set_path_title()
+{
+	strcpy(fw_c.title, fw_c.path);
+	if(strlen(fw_c.path) + strlen(fw_c.mask) < LN_path) {
+		strcat(fw_c.title, fw_c.mask);
+	}
+}
+
 void fwc_chdir(const char *s, bool f)
 {
 	char path[LN_path + 1];
@@ -231,6 +239,7 @@ void fwc_chdir(const char *s, bool f)
 			dm_set(path, fw_c.path + strlen(path));
 		}
 		strcpy(fw_c.path, path);
+		set_path_title();
 		if(!uf || strcmp(fw_c.path, "/") == 0) {
 			dm_get(path, fw_c.match);
 		} else {
@@ -1170,7 +1179,14 @@ void fw_mask()
 			if(len >= 2) {
 				str += 2;
 				set_ext_item(itemUse, str);
+				if(strcmp(str, "*.*")) {
+					strcpy(fw_c.mask, str);
+				} else {
+					fw_c.mask[0] = '\0';
+					clear_string_item(itemUse);
+				}
 			}
+			set_path_title();
 			fw_make(&fw[eff.wa]);
 		}
 	}
@@ -1187,12 +1203,19 @@ void fw_change_dir()
 		if(HisGets(buf, PATH_MASK_MSG, historyMask) != NULL) {
 			if(buf[0] != '\0') {
 				if(dir_isdir(buf)) {
-					fwc_chdir(buf, TRUE);
+					if(strcmp(buf, ".")) {
+						fwc_chdir(buf, TRUE);
+					}
 				} else {
 					set_ext_item(itemUse, buf);
+					strcpy(fw_c.mask, buf);
 				}
-				fw_make(&fw[eff.wa]);
+			} else {
+				fw_c.mask[0] = '\0';
+				clear_string_item(itemUse);
 			}
+			set_path_title();
+			fw_make(&fw[eff.wa]);
 		}
 		CrtDrawAll();
 	}
@@ -1217,6 +1240,7 @@ bool eff_filer(char *fn)
 	if(eff.wn == 1) {
 		dsp_regrm(fw[1].menu.drp);
 	}
+	set_path_title();
 	for (;;) {
 		dsp_allview();
 		system_msg("");
@@ -1316,6 +1340,8 @@ bool eff_filer(char *fn)
 			continue;
 		case KF_EffMaskClear:
 			clear_string_item(itemUse);
+			fw_c.mask[0] = '\0';
+			set_path_title();
 			fw_make(&fw[eff.wa]);
 			continue;
 		case KF_EffRedraw:
