@@ -19,7 +19,7 @@
   SearchReg     = Off     # (on/off)検索での正規表現使用
   AnsiColor     = On      # (on/off)ANSI エスケープシーケンスの色を使う
   NewFile       = On      # (on/off)新規ファイルオープン時に問い合わせ
-  Ambiguous     = 2       # (1/2/emoji2)曖昧文字幅表示設定
+  Ambiguous     = 1       # (1/2/emoji2)曖昧文字幅表示設定
   FrameChar     = ASCII   # (NoChar/ASCII/Frame/TeraTerm)枠文字
 
 # キーコンフィグ
