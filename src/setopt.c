@@ -559,10 +559,10 @@ void sysinfo_optset()
 			sysinfo.framechar = frameCharTeraTerm;
 		}
 	}
-	sysinfo.ambiguous = AM_FIX2;
+	sysinfo.ambiguous = AM_FIX1;
 	if((p = hash_get(sysinfo.vp_def, "ambiguous")) != NULL) {
-		if(*p == '1') {
-			sysinfo.ambiguous = AM_FIX1;
+		if(*p == '2') {
+			sysinfo.ambiguous = AM_FIX2;
 		} else if(toupper(*p) == 'E') {
 			sysinfo.ambiguous = AM_EMOJI2;
 		}
@@ -775,7 +775,7 @@ void SeeOption()
 	char title[MAXLINESTR + 1];
 	int res = 0;
 
-	sprintf(title, "n8 Version %.4s", VER);
+	sprintf(title, "n8 Version %.5s", VER);
 	do {
 		menu_iteminit(&menu);
 		menu.drp->y = 2;

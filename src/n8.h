@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.08"
+#define	VER "4.0.9"
 
 #include <stdio.h>
 #include <stdlib.h>
