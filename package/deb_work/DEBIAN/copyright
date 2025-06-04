@@ -1,0 +1,28 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: n8
+Upstream-Contact: Kobayashi Takashi <takapyu@nanshiki.co.jp>
+Source: https://github.com/nanshiki/n8
+
+Files: *
+Copyright 1992 Isao Nebashi <nebashi@nb.epson.co.jp>
+Copyright 1995-1996 Takashi SHIRAI <shirai@nintendo.co.jp>
+Copyright 1998-2000 SASAKI Shunsuke <erukiti+github@gmail.com>
+Copyright 2025 Kobayashi Takashi <takapyu@nanshiki.co.jp>
+License: GPL-2+
+
+License: GPL-2+
+ This package is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <https://www.gnu.org/licenses/>
+Comment:
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
