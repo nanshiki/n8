@@ -8,7 +8,6 @@ SED = sed
 PREFIX=@prefix@
 
 OPTS = -DSYSCONFDIR=\"@sysconfdir@/n8\" -DPROG=${PROG}
-mkinstalldirs = /bin/sh $(top_srcdir)/mkinstalldirs
 
 CC = @CC@
 DEFS = @DEFS@
@@ -16,12 +15,12 @@ LIBS = -lele @LIBS@
 # CFLAGS= @CFLAGS@
 
 prefix = @prefix@
-top_srcdir = @top_srcdir@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
-#INSTALL_PROGRAM = @INSTALL_PROGRAM@ -s
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
-bindir = $(prefix)/@bindir@
+bindir = $(prefix)@bindir@
+DEBDIR = ../package/deb_work@prefix@/bin
+RPMDIR = ../package/rpm_work@prefix@/bin
 
 
 SRCS = block.c crt.c cursor.c disp.c file.c filer.c \
@@ -48,8 +47,16 @@ distclean:
 	      Makefile config.h
 
 install: $(PROG)
-	@$(mkinstalldirs) $(bindir)
+	$(INSTALL_PROGRAM) -d $(bindir)
 	$(INSTALL_PROGRAM) $(PROG) $(bindir)/$(PROG)
+
+deb:
+	$(INSTALL_PROGRAM) -d $(DEBDIR)
+	$(INSTALL_PROGRAM) $(PROG) $(DEBDIR)/$(PROG)
+
+rpm:
+	$(INSTALL_PROGRAM) -d $(RPMDIR)
+	$(INSTALL_PROGRAM) $(PROG) $(RPMDIR)/$(PROG)
 
 block.o: n8.h ../lib/generic.h ../lib/hash.h ../lib/term.h disp.h kanji.h iskanji.h
 block.o: block.h list.h line.h cursor.h keyf.h file.h

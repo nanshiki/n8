@@ -24,3 +24,23 @@ install:
 	@set -e; for i in $(SUBDIRS); \
 	do (cd $$i ; $(MAKE) install ); done;
 
+deb:
+	@set -e; for i in $(SUBDIRS); \
+	do (cd $$i ; $(MAKE) deb ); done;
+	install -m 0644 -D -t package/deb_work/usr/share/doc/n8 n8.txt package/deb_work/DEBIAN/copyright
+	fakeroot dpkg-deb --build package/deb_work package
+	rm -rf package/deb_work/usr
+
+rpm:
+	@set -e; for i in $(SUBDIRS); \
+	do (cd $$i ; $(MAKE) rpm ); done;
+	install -m 0644 -D -t package/rpm_work/usr/share/doc/n8 n8.txt COPYING
+	rpmbuild --bb --buildroot ${PWD}/package/rpm_work \
+	  --define "%_topdir package/" \
+	  --define "%_builddir package/" \
+	  --define "%_buildrootdir package/rpm_work/" \
+	  --define "%_rpmdir package/" \
+	  --define "%_srcrpmdir package/" \
+	  package/n8.spec
+	rm -rf package/SOURCES
+	rm -rf package/SPECS

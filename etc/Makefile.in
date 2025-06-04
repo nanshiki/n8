@@ -5,10 +5,10 @@
 PROG = n8
 prefix = @prefix@
 SYSCONFDIR= @sysconfdir@/n8
-top_srcdir = @top_srcdir@
-mkinstalldirs = /bin/sh $(top_srcdir)/mkinstalldirs
 INSTALL= @INSTALL@
 INSTALL_DATA= @INSTALL_DATA@
+DEBDIR = ../package/deb_work$(SYSCONFDIR)
+RPMDIR = ../package/rpm_work$(SYSCONFDIR)
 
 INSS=   n8rc n8rc.tk \
         key.vz key.tk key.eff key.system \
@@ -22,7 +22,16 @@ distclean:
 	rm -f Makefile
 
 install:
-	@$(mkinstalldirs) $(SYSCONFDIR)
+	$(INSTALL) -d $(SYSCONFDIR)
 	@set -e; for i in $(INSS); \
 	do (echo "install $$i" ;  $(INSTALL_DATA) $$i $(SYSCONFDIR)/$$i); done
 
+deb:
+	$(INSTALL) -d $(DEBDIR)
+	@set -e; for i in $(INSS); \
+	do (echo "install $$i" ;  $(INSTALL_DATA) $$i $(DEBDIR)/$$i); done
+
+rpm:
+	$(INSTALL) -d $(RPMDIR)
+	@set -e; for i in $(INSS); \
+	do (echo "install $$i" ;  $(INSTALL_DATA) $$i $(RPMDIR)/$$i); done

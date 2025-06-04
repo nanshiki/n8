@@ -36,6 +36,11 @@ distclean:
 	rm -f $(OBJS) $(TARGET) \
 		Makefile config.h config.cache config.log config.status
 
+deb:
+
+rpm:
+
+
 misc.o: config.h
 misc.o: generic.h
 generic.o: config.h
