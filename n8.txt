@@ -1,11 +1,18 @@
-  n8
+
+  n8 editor
+
+                                                   Copyright 1992 Isao Nebashi
+                                            Copyright 1995-1996 Takashi SHIRAI
+                                           Copyright 1998-2000 SASAKI Shunsuke
+                                              Copyright 2025 Kobayashi Takashi
 
 ・解説
   n8 はモードレスなフルスクリーンのテキストエディタです。
+  NxEdit を元に作られた ne というエディタを UTF-8 対応としたものです。
   主要な操作や編集方式を MS-DOS 系 OS で有名な Vz 互換にしていますので、MS-DOS
 系 OS や Windows などで Vz、Mifes など WordStar 系テキストエディタを使っていた
 方には使いやすいと思います。
-  各種 Linux ディストリビューション、macOS で動作確認しています。
+  各種 Linux ディストリビューション、FreeBSD、macOS で動作確認しています。
   また、ターミナルソフト TeraTerm、RLogin、PuTTY での動作も確認しています。
   文字コードは自動判別し、UTF-8 に変換して編集します。
 
@@ -329,7 +336,7 @@
     メニューやメッセージを日本語で表示します。
     オプションメニューで変更できます。
 
-  Ambiguous [2]
+  Ambiguous [1]
     曖昧幅文字の幅を指定します。指定可能な文字列は 1, 2, Emoji2 です。
     1 は幅 1 固定、2 は幅 2 固定、Emoji2 は幅 2 固定で絵文字も幅 2 とします。
     1 の場合コンソールソフトで曖昧文字幅や Ambiguous Characters width といった
@@ -360,7 +367,7 @@
     カーソル位置に上書きをします。
     [INS] キー押下で変更できます。
 
-  FrameChar [NoChar]
+  FrameChar [ASCII]
     メニューや入力ウインドウの枠内の文字を指定します。
     指定可能な文字列は NoChar, ASCII, Frame, TeraTerm です。
     NoChar は枠内に文字を表示しません。ASCII は +-| を表示します。
@@ -937,8 +944,10 @@
       Override Emoji Characters width のチェックを ON とし、2 Cell に設定
 
 ・最後に
-  大本の NxEdit の作者 Ｎｅｃｏ＠任天堂さん、根橋 勲＠セイコーエプソンさん、ne
-の作者 erukiti さんに感謝します。
+  大本の NxEdit の作者の根橋 勲＠セイコーエプソンさん、Ｎｅｃｏ＠任天堂さん、
+ne の作者 erukiti さんに感謝します。
+  ne および NxEdit のドキュメントは github (https://github.com/nanshiki/n8) か
+ら入手できます。
   ne_doc/ に ne のドキュメント、ne_doc/old_doc に NxEdit のドキュメントがあり
 ます。
   lib/ ディレクトリのコードは別のライセンスです。詳しくは lib/README.jp を参照
