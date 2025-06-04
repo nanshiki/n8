@@ -256,7 +256,7 @@ bool CheckFileAccess(const char *fn)
 
 bool file_change(int n)
 {
-	if(n < 0 || n > MAX_edfiles || *edbuf[n].path == '\0') {
+	if(n < 0 || n >= MAX_edfiles || *edbuf[n].path == '\0') {
 		return FALSE;
 	}
 	BackFileNo = CurrentFileNo;
