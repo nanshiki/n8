@@ -21,6 +21,11 @@
   NewFile       = On      # (on/off)新規ファイルオープン時に問い合わせ
   Ambiguous     = 1       # (1/2/emoji2)曖昧文字幅表示設定
   FrameChar     = ASCII   # (NoChar/ASCII/Frame/TeraTerm)枠文字
+  AskSave       = On      # (on/off)ファイルセーブ時の問い合わせ
+  AfterClose    = default # (default/input/filer/quit)ファイルクローズ時の動作
+  ExtLength     = 4       # <number>ファイラーの拡張子表示文字数
+  CExt          = ".h .c .cpp" # C 編集モードとする拡張子
+  CTabStop      = 4            # <number>C 編集モードのタブストップ数
 
 # キーコンフィグ
 #   /usr/local/etc/n8/ などのディレクトリに、

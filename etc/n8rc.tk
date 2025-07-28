@@ -12,7 +12,7 @@
   Backfile      = Off     # (on/off)ファイルのバックアップ
   PasteMove     = On      # (on/off)ペーストでカーソル移動
   Japanese      = On      # (on/off)表示メッセージの言語
-  TabStop       = 4       # <number>タブストップ数を指定する
+  TabStop       = 8       # <number>タブストップ数を指定する
   OverWrite     = Off     # (on/off)上書き/挿入
   SearchWord    = Off     # (on/off)ワードサーチ
   NoCase        = On      # (on/off)検索文字の大文字・小文字の区別無し
@@ -21,6 +21,11 @@
   NewFile       = Off     # (on/off)新規ファイルオープン時に問い合わせ
   Ambiguous     = 1       # (1/2/emoji2)曖昧文字幅表示設定
   FrameChar     = Frame   # (NoChar/ASCII/Frame/TeraTerm)枠文字
+  AskSave       = Off     # (on/off)ファイルセーブ時の問い合わせ
+  AfterClose    = Quit    # (default/input/filer/quit)ファイルクローズ時の動作
+  ExtLength     = 6       # <number>ファイラーの拡張子表示文字数
+  CExt          = ".h .c .cpp" # C 編集モードとする拡張子
+  CTabStop      = 4            # <number>C 編集モードのタブストップ数
 
 # キーコンフィグ
 #   /usr/local/etc/n8/ などのディレクトリに、

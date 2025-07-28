@@ -7,7 +7,7 @@
   ^OT [F03]         : file_select           # カレントファイルの変更
 
   ^ON [ESC]O        : file_open             # ファイルのオープン
-  [ESC]C            : file_close            # ファイルのクローズ
+  ^KE [ESC]C        : file_close            # ファイルのクローズ
   ^KS [ESC]S        : file_save             # ファイルのセーブ
   [ESC]N            : file_open_new         # 新規ファイルオープン
   [ESC]R            : file_open_readonly    # Read onlyオープン
