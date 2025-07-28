@@ -21,6 +21,7 @@
 #include "cursor.h"
 #include "block.h"
 #include "input.h"
+#include "setopt.h"
 #include "sh.h"
 #include "../lib/misc.h"
 #include <sys/stat.h>
@@ -48,6 +49,8 @@ enum {
 enum {
 	openInput,
 	openFiler,
+
+	openQuit
 };
 
 static int open_type;
@@ -55,6 +58,7 @@ static int duplicate_flag;
 static int last_current_file_no;
 static int last_back_file_no;
 static int duplicate_file_no;
+static char close_path[LN_path + 1];
 
 void FileStartInit(bool f)
 {
@@ -445,6 +449,8 @@ int fileopen(char *filename, int kc, int line, int mode)
 			lists_add((void *(*)(char *, void *))file_new_proc, "");
 			edbuf[CurrentFileNo].ct = -1;
 			edbuf[CurrentFileNo].kc = KC_utf8;
+			edbuf[CurrentFileNo].cmode = check_cmode_ext(filename);
+			edbuf[CurrentFileNo].tabstop = edbuf[CurrentFileNo].cmode ? sysinfo.cmode_tabstop : sysinfo.tabstop;
 
 			system_msg(NEWFILE_MSG);
 			csr_lenew();
@@ -492,6 +498,8 @@ int fileopen(char *filename, int kc, int line, int mode)
 			edbuf[CurrentFileNo].rm = n / nx > ki.n_lf ? RM_cr : RM_crlf;
 		}
 	}
+	edbuf[CurrentFileNo].cmode = check_cmode_ext(filename);
+	edbuf[CurrentFileNo].tabstop = edbuf[CurrentFileNo].cmode ? sysinfo.cmode_tabstop : sysinfo.tabstop;
 	csr_lenew();
 
 	if(line == -1) {
@@ -605,6 +613,13 @@ int FileOpenOp(const char *path, int mode)
 			split_file_no[split_no] = CurrentFileNo;
 			BackFileNo = back_no;
 		}
+		if(sysinfo.afterclose == afterCloseInput) {
+			open_type = openInput;
+		} else if(sysinfo.afterclose == afterCloseFiler) {
+			open_type = openFiler;
+		} else if(sysinfo.afterclose == afterCloseQuit) {
+			open_type = openQuit;
+		}
 		return openOK;
 	}
 	edbuf_rm(CurrentFileNo);
@@ -712,6 +727,7 @@ SHELL void op_file_save()
 	struct stat sbuf;
 	int cTime;
 	char fn[LN_path + 1];
+	char buffer[MAXEDITLINE * 2 + 1];
 
 	if(check_readonly()) {
 		return;
@@ -720,11 +736,13 @@ SHELL void op_file_save()
 	CrtDrawAll();
 	csr_leupdate();
 	strcpy(fn, edbuf[CurrentFileNo].path);
-	if(HisGets(fn, OUTPUT_FILE_MSG, historyRename) == NULL) {
-		return;
-	}
-	if(*fn == '\0') {
-		return;
+	if(sysinfo.asksavef) {
+		if(HisGets(fn, OUTPUT_FILE_MSG, historyRename) == NULL) {
+			return;
+		}
+		if(*fn == '\0') {
+			return;
+		}
 	}
 	if(!filesave(fn, TRUE)) {
 		return;
@@ -733,11 +751,14 @@ SHELL void op_file_save()
 		cTime = stat(edbuf[CurrentFileNo].path, &sbuf);
 		edbuf[CurrentFileNo].ct = cTime == -1 ? -1 : sbuf.st_ctime;
 	}
+	sprintf(buffer, "%s %s", SAVESUCCESS_MSG, fn);
+	system_msg(buffer);
 }
 
 bool fileclose(int n)
 {
 	int m;
+	char *pt;
 
 	csr_leupdate();
 	m = CurrentFileNo;
@@ -746,6 +767,11 @@ bool fileclose(int n)
 		return FALSE;
 	}
 	history_set_line(edbuf[n].path, edbuf[n].se.ly);
+
+	strcpy(close_path, edbuf[n].path);
+	if((pt = strrchr(close_path, '/')) != NULL) {
+		*pt = '\0';
+	}
 	edbuf_rm(n);
 	lists_clear();
 	CurrentFileNo = m;
@@ -778,10 +804,13 @@ void close_next()
 
 		CurrentFileNo = -1;
 		term_cls();
+		fwc_setdir(close_path);
 		fname[0] = '\0';
 		if(eff_filer(fname)) {
 			FileOpenOp(fname, openModeNormal);
 		}
+	} else if(open_type == openQuit) {
+		CurrentFileNo = -1;
 	}
 }
 
