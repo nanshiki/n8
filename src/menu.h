@@ -16,6 +16,7 @@ typedef	struct
 	size_t nums;
 
 	char *title;
+	char *footer;
 	bool df;				/* filerで利用するdisable flag */
 
 	int sy, cy;			/* 現在の座標 */
@@ -36,7 +37,7 @@ int menu_select(menu_t *mnp);
 int menu_vselect(char *title, int x, int y, size_t num, ...);
 dspreg_t *menu_regset(menu_t *mnp);
 
-void make_frame_top(char *buf, char *msg, int size);
-void make_frame_bottom(char *buf, int size);
+void make_frame_top_bottom(char *buf, char *msg, int size, bool bottom);
+int menu_set_footer(char *footer);
 
 #endif

@@ -25,6 +25,7 @@ void menu_iteminit(menu_t *mnp)
 	mnp->cy = 0;
 
 	mnp->title = "";
+	mnp->footer = "";
 	mnp->drp = dsp_reginit();
 	mnp->drp->func = dspreg_menu;
 	mnp->drp->vp = (void *)mnp;
@@ -217,14 +218,14 @@ char vertical_line_char[] = { (char)0xe2, 0x95 ,(char)0x91, 0x00 };
 char left_bottom_char[] = { (char)0xe2, 0x95 ,(char)0x9a, 0x00 };
 char right_bottom_char[] = { (char)0xe2, 0x95 ,(char)0x9d, 0x00 };
 
-void make_frame_top(char *buf, char *msg, int size)
+void make_frame_top_bottom(char *buf, char *msg, int size, bool bottom)
 {
 	int a, w, pos;
 	int flag = FALSE;
 
 	a = min(get_display_length(msg), size - 3 - 3);
 	if(sysinfo.framechar >= frameCharFrame) {
-		strcpy(buf, left_top_char);
+		strcpy(buf, bottom ? left_bottom_char : left_top_char);
 		strcpy(&buf[3], horizon_line_char);
 		pos = 6;
 	} else if(sysinfo.framechar == frameCharASCII) {
@@ -273,35 +274,12 @@ void make_frame_top(char *buf, char *msg, int size)
 		}
 	}
 	if(sysinfo.framechar >= frameCharFrame) {
-		strcpy(&buf[a], right_top_char);
+		strcpy(&buf[a], bottom ? right_bottom_char : right_top_char);
 		a += 3;
 	} else {
 		buf[a++] = (sysinfo.framechar == frameCharASCII) ? '+' : ' ';
 	}
 	buf[a] = '\0';
-}
-
-void make_frame_bottom(char *buf, int size)
-{
-	if(sysinfo.framechar >= frameCharFrame) {
-		int a = 3;
-		int c = (sysinfo.ambiguous == AM_FIX1 || sysinfo.framechar == frameCharTeraTerm) ? 2 : 4;
-		strcpy(buf, left_bottom_char);
-		while(size > c) {
-			strcpy(&buf[a], horizon_line_char);
-			a += 3;
-			size--;
-			if(sysinfo.ambiguous != AM_FIX1 && sysinfo.framechar != frameCharTeraTerm) {
-				size--;
-			}
-		}
-		strcpy(&buf[a], right_bottom_char);
-	} else {
-		*buf = (sysinfo.framechar == frameCharASCII) ? '+' : ' ';
-		memset(buf + 1, (sysinfo.framechar == frameCharASCII) ? '-' : ' ', size - 2);
-		buf[size - 1] = (sysinfo.framechar == frameCharASCII) ? '+' : ' ';
-		buf[size] = '\0';
-	}
 }
 
 dspfmt_t *dspreg_menu(void *vp, int y, int sizex, int sizey)
@@ -314,10 +292,10 @@ dspfmt_t *dspreg_menu(void *vp, int y, int sizex, int sizey)
 	mnp = (menu_t *)vp;
 	w = sizex - 1;
 	if(y == 0) {
-		make_frame_top(buf, mnp->title, sizex);
+		make_frame_top_bottom(buf, mnp->title, sizex, FALSE);
 	}
 	if(y == sizey - 1) {
-		make_frame_bottom(buf, sizex);
+		make_frame_top_bottom(buf, mnp->footer, sizex, TRUE);
 	}
 
 	if(y == 0 || y == sizey - 1) {
