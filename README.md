@@ -15,6 +15,7 @@ Linuxの動作するシングルボードコンピュータRaspberry Pi、Rock 5
 ## 画面
 ![検索](https://www.nanshiki.co.jp/software/n8search.png)
 ![分割](https://www.nanshiki.co.jp/software/n8teraterm.png)
+こちらの[紹介ページ](https://www.nanshiki.co.jp/software/n8.html)にも画面があります。  
 
 ## neからの変更点
 - 編集時の文字コードをUTF-8に変更しました。合成文字(濁点・半濁点のみ)や曖昧文字幅にも対応しています。  
