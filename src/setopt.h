@@ -17,3 +17,4 @@ char *get_string_item(int no, int pos);
 void start_mask_reg();
 void end_mask_reg();
 void search_option(int x, int y);
+bool check_cmode_ext(const char *filename);

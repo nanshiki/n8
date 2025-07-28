@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.0.9"
+#define	VER "4.1.0"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,6 +59,13 @@ enum {
 	historyMask,
 
 	historyMax
+};
+
+enum {
+	afterCloseDefault,
+	afterCloseInput,
+	afterCloseFiler,
+	afterCloseQuit
 };
 
 #define MAX_edfiles		8
@@ -143,6 +150,7 @@ enum {
 	itemUse,
 	itemMask,
 	itemDir,
+	itemCext,
 
 	itemMax
 };
@@ -154,6 +162,7 @@ typedef struct
 	const char *shell;
 
 	int tabstop;
+	int cmode_tabstop;
 	char tabcode;
 	char zenspacechar[4];
 
@@ -194,10 +203,13 @@ typedef struct
 	bool zenspacef;
 	bool systeminfof;
 	bool newfilef;
+	bool asksavef;
 
 	int file_history_count;
 	int ambiguous;
 	int framechar;
+	int afterclose;
+	int extlength;
 
 	char systemline[MAXEDITLINE + 1];
 	dspreg_t *sl_drp;
@@ -270,9 +282,11 @@ typedef struct
 	int ct;					/* Create Time */
 	bool cf;				/* file Change Flag */
 	bool readonly;
+	bool cmode;
 	int kc;					/* EUC/JIS/SJIS/UTF8 */
 	int open_kc;
 	int rm;					/* LF/CRLF/CR */
+	int tabstop;
 
 	bool pm;				/* Paging Mode */
 	replm_t replm;			/* replace Mode */

@@ -333,25 +333,28 @@ void set_ext_item(int no, const char *p)
 		int length = 1;
 
 		str[0] = '*';
-		add_string_item(no, p);
-		while(*p != '\0') {
-			if(*p == ' ' || *(p + 1) == '\0') {
-				if(*(p + 1) == '\0') {
+		if(sysinfo.maskregf) {
+			add_string_item(no, p);
+		} else {
+			while(*p != '\0') {
+				if(*p == ' ' || *(p + 1) == '\0') {
+					if(*(p + 1) == '\0') {
+						str[length++] = *p;
+					}
+					if(length > 1) {
+						str[length] = '\0';
+						if(str[1] == '.') {
+							add_string_item(no, str);
+						} else {
+							add_string_item(no, &str[1]);
+						}
+						length = 1;
+					}
+				} else if(length < MAXLINESTR) {
 					str[length++] = *p;
 				}
-				if(length > 1) {
-					str[length] = '\0';
-					if(str[1] == '.') {
-						add_string_item(no, str);
-					} else {
-						add_string_item(no, &str[1]);
-					}
-					length = 1;
-				}
-			} else if(length < MAXLINESTR) {
-				str[length++] = *p;
+				p++;
 			}
-			p++;
 		}
 	}
 }
@@ -401,6 +404,37 @@ void end_mask_reg()
 	}
 }
 
+bool check_cmode_ext(const char *filename)
+{
+	bool flag = FALSE;
+	sitem_t *item;
+	char *name = strrchr(filename, '/');
+	if(name != NULL) {
+		name++;
+		if((item = sysinfo.sitem[itemCext]) != NULL) {
+			if(sysinfo.maskregf) {
+				regex_t reg_cext;
+				if(!regcomp(&reg_cext, item->str, REG_EXTENDED | REG_NOSUB | REG_NEWLINE)) {
+					if(!regexec(&reg_cext, name, 0, NULL, 0)) {
+						flag = TRUE;
+					}
+					regfree(&reg_cext);
+				}
+			} else {
+				item = item->next;
+				while(item != NULL) {
+					if(wildcard(name, item->str)) {
+						flag = TRUE;
+						break;
+					}
+					item = item->next;
+				}
+			}
+		}
+	}
+	return flag;
+}
+
 bool check_use_ext(const char *name, const char *path)
 {
 	char buff[LN_path + 1];
@@ -416,7 +450,6 @@ bool check_use_ext(const char *name, const char *path)
 				return FALSE;
 			}
 		} else {
-			item = item->next;
 			while(item != NULL) {
 				if(wildcard(name, item->str)) {
 					return FALSE;
@@ -431,7 +464,6 @@ bool check_use_ext(const char *name, const char *path)
 				return TRUE;
 			}
 		} else {
-			item = item->next;
 			while(item != NULL) {
 				if(wildcard(name, item->str)) {
 					return TRUE;
@@ -522,6 +554,16 @@ void sysinfo_optset()
 		sysinfo.tabstop = 8;
 		hash_set_int(sysinfo.vp_def, "tabstop", sysinfo.tabstop);
 	}
+	sysinfo.cmode_tabstop = hash_get_int(sysinfo.vp_def, "ctabstop");
+	if(sysinfo.cmode_tabstop <= 0) {
+		sysinfo.cmode_tabstop = 4;
+		hash_set_int(sysinfo.vp_def, "ctabstop", sysinfo.cmode_tabstop);
+	}
+	sysinfo.extlength = hash_get_int(sysinfo.vp_def, "extlength");
+	if(sysinfo.extlength <= 0) {
+		sysinfo.extlength = 4;
+		hash_set_int(sysinfo.vp_def, "extlength", sysinfo.extlength);
+	}
 
 	sysinfo.file_history_count = hash_get_int(sysinfo.vp_def, "FileHistoryCount");
 
@@ -543,6 +585,17 @@ void sysinfo_optset()
 	sysinfo.zenspacef   = hash_istrue(sysinfo.vp_def, "zenspace");
 	sysinfo.systeminfof = hash_istrue(sysinfo.vp_def, "systeminfo");
 	sysinfo.newfilef    = hash_istrue(sysinfo.vp_def, "newfile");
+	sysinfo.asksavef    = hash_istrue(sysinfo.vp_def, "asksave");
+	sysinfo.afterclose = afterCloseDefault;
+	if((p = hash_get(sysinfo.vp_def, "afterclose")) != NULL) {
+		if(!strcasecmp(p, "input")) {
+			sysinfo.afterclose = afterCloseInput;
+		} else if(!strcasecmp(p, "filer")) {
+			sysinfo.afterclose = afterCloseFiler;
+		} else if(!strcasecmp(p, "quit")) {
+			sysinfo.afterclose = afterCloseQuit;
+		}
+	}
 	if((p = hash_get(sysinfo.vp_def, "zenspacechar")) != NULL) {
 		int len = kanji_countbuf(p);
 		if(len == 3) {
@@ -594,11 +647,11 @@ void sysinfo_optset()
 	sysinfo.c_menun     = term_cftocol(hash_get(sysinfo.vp_def, "col_menun"));
 	sysinfo.c_eff_dirc  = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_dirc"));
 	sysinfo.c_eff_dirn  = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_dirn"));
-
 	sysinfo.c_eff_normc = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normc"));
 	sysinfo.c_eff_normn = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normn"));
 
 	set_ext_item(itemHide, hash_get(sysinfo.vp_def, "HideExt"));
+	set_ext_item(itemCext, hash_get(sysinfo.vp_def, "CExt"));
 }
 
 void opt_set(const char *s, const char *t)
@@ -631,6 +684,8 @@ void opt_default()
 	char code[4] = { (char)0xe3, (char)0x83, (char)0xad, 0 };
 
 	hash_set(sysinfo.vp_def, "TabStop", "8");
+	hash_set(sysinfo.vp_def, "ctabstop", "4");
+	hash_set(sysinfo.vp_def, "extlength", "4");
 	hash_set(sysinfo.vp_def, "tabcode", ">");
 	hash_set(sysinfo.vp_def, "Japanese", "on");
 	hash_set(sysinfo.vp_def, "AutoIndent", "on");
@@ -648,6 +703,7 @@ void opt_default()
 	hash_set(sysinfo.vp_def, "framechar", "ascii");
 	hash_set_int(sysinfo.vp_def, "FileHistoryCount", DEFAULT_FILE_HISTORY_COUNT);
 	hash_set(sysinfo.vp_def, "sort", "filename");
+	hash_set(sysinfo.vp_def, "asksave", "on");
 
 	hash_set(sysinfo.vp_def, "col_block", "R");
 	hash_set(sysinfo.vp_def, "col_linenum", "4");
@@ -868,11 +924,17 @@ SHELL void op_opt_retmode()
 
 SHELL void op_opt_tab()
 {
+	int n;
 	char tmp[20 + 1];
 
 	sysinfo.tabstop = sysinfo.tabstop == 8 ? 4 : 8;
 	sprintf(tmp, "%d", sysinfo.tabstop);
 	hash_set(sysinfo.vp_def, "tabstop", tmp);
+	for(n = 0 ; n < MAX_edbuf ; n++) {
+		if(!edbuf[n].cmode) {
+			edbuf[n].tabstop = sysinfo.tabstop;
+		}
+	}
 }
 
 #define	isspc(c)	((c) == ' ' || (c) == '\t')

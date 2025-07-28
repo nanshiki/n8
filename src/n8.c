@@ -125,6 +125,7 @@ bool n8_arg(int argc, char *argv[])
 	bool f;
 	int c;
 	char *sp, *p;
+	char *rname = NULL;
 
 	line = 0;
 	f = FALSE;
@@ -148,9 +149,7 @@ bool n8_arg(int argc, char *argv[])
 			{
 				HistoryData *hi = history_get_last(historyOpen);
 				if(hi != NULL && hi->buffer != NULL) {
-					if(FileOpenOp(hi->buffer, openModeNormal) == openOK) {
-					 	f = TRUE;
-					}
+					rname = hi->buffer;
 				}
 			}
 			break;
@@ -166,6 +165,11 @@ bool n8_arg(int argc, char *argv[])
 		}
 	}
 	sysinfo_optset();
+	if(rname != NULL) {
+		if(FileOpenOp(rname, openModeNormal) == openOK) {
+		 	f = TRUE;
+		}
+	}
 	for( ; optcount < argc ; ++optcount) {
 		if(*argv[optcount] == '+') {
 			line = atoi(argv[optcount] + 1);
