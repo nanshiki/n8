@@ -32,6 +32,31 @@ void Ledit(int contrl_flag)
 	LeditInput(' ', contrl_flag);
 }
 
+bool check_comment()
+{
+	bool comment = FALSE;
+	int n = 0;
+	int len = (int)strlen(csrle.buf);
+
+	while(n < len) {
+		if(!comment) {
+			if(csrle.buf[n] == '/' && n < len - 1) {
+				if(csrle.buf[n + 1] == '/' || csrle.buf[n + 1] == '*') {
+					comment = TRUE;
+				}
+			}
+		} else {
+			if(csrle.buf[n] == '*' && n < len - 1) {
+				if(csrle.buf[n + 1] == '/') {
+					comment = FALSE;
+				}
+			}
+		}
+		n++;
+	}
+	return comment;
+}
+
 void InputAndCrt(unsigned long key)
 {
 	int ch = key & 0xf0;
@@ -52,6 +77,14 @@ void InputAndCrt(unsigned long key)
 		LeditInput(key, NONE);
 		term_locate(0, GetRow());
 	} else {
+		if(edbuf[CurrentFileNo].cmode && key == '}' && !check_comment()) {
+			if(csrle.lx > 0) {
+				if(csrle.buf[csrle.lx - 1] == '\t') {
+					csrle.lx--;
+					csrle.buf[csrle.lx] = '\0';
+				}
+			}
+		}
 		LeditInput(key, NONE);
 	}
 	csr_movehook();

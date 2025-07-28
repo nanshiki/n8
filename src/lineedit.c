@@ -157,7 +157,7 @@ size_t le_regbuf(const char *s, char *t, char *ac)
 			if(ac != NULL) {
 				ac[n] = sysinfo.tabmarkf && c != -1 ? sysinfo.c_tab : 0;
 			}
-			a = (pos / sysinfo.tabstop + 1) * sysinfo.tabstop;
+			a = (pos / edbuf[CurrentFileNo].tabstop + 1) * edbuf[CurrentFileNo].tabstop;
 			while(pos < a) {
 			 	t[n + 1] = ' ';
 				if(ac != NULL) {
@@ -425,7 +425,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 	if(hn == historyMask) {
 		cy = 1;
 	}
-	make_frame_top(top, title, dsize + 1);
+	make_frame_top_bottom(top, title, dsize + 1, FALSE);
 	drp[0] = dsp_reginit();
 	drp[0]->func = dspreg_path;
 	drp[0]->x = cx;
@@ -466,7 +466,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 	}
 	dsp_regadd(drp[2]);
 
-	make_frame_bottom(bottom, dsize + 1);
+	make_frame_top_bottom(bottom, "", dsize + 1, TRUE);
 	drp[3] = dsp_reginit();
 	drp[3]->func = dspreg_path;
 	drp[3]->x = cx;
@@ -566,7 +566,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 			if(hn == historySearch) {
 				search_option(cx, cy + 1);
 				sprintf(title, "%s OPT:%s%s%s", msg, sysinfo.searchwordf ? "W" : "", sysinfo.nocasef ? "C" : "", sysinfo.searchregf ? "R" : "");
-				make_frame_top(top, title, dsize + 1);
+				make_frame_top_bottom(top, title, dsize + 1, FALSE);
 			}
 			continue;
 		default:

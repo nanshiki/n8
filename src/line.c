@@ -205,19 +205,47 @@ SHELL void op_del_bs()
 	undo_add(TRUE, buf);
 }
 
-void split(bool f)
+bool check_bracket(int len)
+{
+	bool comment = FALSE;
+	int n = 0;
+
+	while(n < len) {
+		if(!comment) {
+			if(csrle.buf[n] == '/' && n < len - 1) {
+				if(csrle.buf[n + 1] == '/' || csrle.buf[n + 1] == '*') {
+					comment = TRUE;
+				}
+			}
+			if(csrle.buf[n] == '{') {
+				return TRUE;
+			}
+		} else {
+			if(csrle.buf[n] == '*' && n < len - 1) {
+				if(csrle.buf[n + 1] == '/') {
+					comment = FALSE;
+				}
+			}
+		}
+		n++;
+	}
+	return FALSE;
+}
+
+void split(bool f, bool autoindentf, bool cmode)
 {
 	EditLine *ed;
 	char buf_nl[MAXEDITLINE + 1];
 	int a, n;
+	int len = (int)strlen(csrle.buf);
 
 	se_nazo();
 
 	n = GetBufferOffset();
 
 	a = 0;
-	if(sysinfo.autoindentf) {
-		for( ; a < strlen(csrle.buf) ; ++a) {
+	if(autoindentf || cmode) {
+		for( ; a < len ; ++a) {
 			if(csrle.buf[a] != '\t' && csrle.buf[a] != ' ') {
 				break;
 			}
@@ -227,7 +255,9 @@ void split(bool f)
 			a = 0;
 		}
 	}
-
+	if(cmode && check_bracket(len)) {
+		buf_nl[a++] = '\t';
+	}
 	strcpy(buf_nl + a, csrle.buf + n);
 
 	/* splitされるライン */
@@ -247,7 +277,7 @@ void split(bool f)
 
 void op_line_cr()
 {
-	split(TRUE);
+	split(TRUE, sysinfo.autoindentf, edbuf[CurrentFileNo].cmode);
 }
 
 SHELL void op_line_new()
@@ -496,12 +526,7 @@ void undo_paste()
 	}
 
 	if(buf[1] == '\n') {
-		bool f;
-
-		f = sysinfo.autoindentf;
-		sysinfo.autoindentf = FALSE;
-		split(buf[0] == '1');
-		sysinfo.autoindentf = f;
+		split(buf[0] == '1', FALSE, FALSE);
 		return;
 	}
 

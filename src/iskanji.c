@@ -683,7 +683,7 @@ int kanji_countdsp(const char *p, int n)
 	if(*p == 0) {
 		return 0;
 	} else if(*p == '\t' && n != -1) {
-		return (n / sysinfo.tabstop + 1) * sysinfo.tabstop - n;
+		return (n / edbuf[CurrentFileNo].tabstop + 1) * edbuf[CurrentFileNo].tabstop - n;
 	} else if(ch == 0xc0 || ch == 0xd0) {
 		if(term_utf8_half_char(p)) {
 			return 1;
