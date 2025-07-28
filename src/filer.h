@@ -44,6 +44,7 @@ typedef struct
 	char match[LN_path + 1];
 	char mask[LN_path + 1];
 	char title[LN_path + 1];
+	char footer[LN_path + 1];
 } fw_t;
 #define fw_c fw[eff.wa]
 

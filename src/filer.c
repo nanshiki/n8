@@ -143,6 +143,7 @@ void fw_init(fw_t *fwp, const char *s, int a)
 
 	menu_iteminit(&fwp->menu);
 	fwp->menu.title = fwp->title;
+	fwp->menu.footer = fwp->footer;
 
 	fwp->menu.drp->sizex = term_sizex() / 2;
 	if(sysinfo.framechar >= frameCharFrame) {
@@ -460,14 +461,22 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 	char buf[MAXLINESTR + 1];
 	char *s, *p;
 	fw_t *fwp;
+	int elen = sysinfo.extlength;
 
+	if(elen < 3) {
+		elen = 3;
+	}
 	fwp = vp;
 	s = mip->str;
 
-	strjfcpy(s, fwp->findex[a]->fn, MAXLINESTR, fwp->menu.drp->sizex - ((check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) ? 32 : 30), TRUE);
+	strjfcpy(s, fwp->findex[a]->fn, MAXLINESTR, fwp->menu.drp->sizex - (elen - 4) - ((check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) ? 32 : 30), TRUE);
 	p = fwp->findex[a]->e;
 	if(*p == '\0') {
-		strcat(s, "     ");
+		int n = elen + 1;
+		while(n > 0) {
+			strcat(s, " ");
+			n--;
+		}
 	} else {
 		int m, n;
 
@@ -478,7 +487,7 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 		}
 
 		strcat(s, ".");
-		strjfcpy(s + strlen(s), p, MAXLINESTR, 4, TRUE);
+		strjfcpy(s + strlen(s), p, MAXLINESTR, elen, TRUE);
 	}
 
 	strcat(s, " ");
@@ -1242,6 +1251,9 @@ bool eff_filer(char *fn)
 	}
 	set_path_title();
 	for (;;) {
+		if((p = fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn) != NULL) {
+			strcpy(fw[eff.wa].footer, p);
+		}
 		dsp_allview();
 		system_msg("");
 
