@@ -1,7 +1,7 @@
 Package: n8
 Maintainer: Kobayashi Takashi <takapyu@nanshiki.co.jp>
 Architecture: amd64
-Version: 4.0.9
+Version: 4.1.0
 Description: n8 editor
  n8 editor is a modeless fullscreen editor that runs in a terminal.
  It is an editor called NxEdit(ne) that has been modified to run in UTF-8 character encoding.
