@@ -23,6 +23,7 @@ void history_append_last(int no, HistoryData *hi);
 void history_insert_line(int no, HistoryData *bhi, HistoryData *hi);
 void history_delete_list(int no, HistoryData *hi);
 void history_set_line(char *filename, int line);
-int history_add_file(char *filename);
+int history_add_path(char *path, int no);
 void history_save_file();
 void history_load_file();
+char *history_get_position_path(int no, int pos);

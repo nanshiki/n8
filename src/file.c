@@ -58,7 +58,7 @@ static int duplicate_flag;
 static int last_current_file_no;
 static int last_back_file_no;
 static int duplicate_file_no;
-static char close_path[LN_path + 1];
+static char temp_path[LN_path + 1];
 
 void FileStartInit(bool f)
 {
@@ -503,7 +503,7 @@ int fileopen(char *filename, int kc, int line, int mode)
 	csr_lenew();
 
 	if(line == -1) {
-		line = history_add_file(filename);
+		line = history_add_path(filename, historyOpen);
 	}
 	a = min(line, GetRowWidth() / 2 + 1);
 	csr_setly(line - a + 1);
@@ -609,6 +609,13 @@ int FileOpenOp(const char *path, int mode)
 	FileStartInit(TRUE);
 	res = fileopen(edbuf[CurrentFileNo].path, -1, -1, mode);
 	if(res == openOK) {
+		if(sysinfo.dir_history_count > 0) {
+			char *pt;
+			if((pt  = strrchr(pf, '/')) != NULL) {
+				*pt = '\0';
+				history_add_path(pf, historyDir);
+			}
+		}
 		if(split_mode != splitNone) {
 			split_file_no[split_no] = CurrentFileNo;
 			BackFileNo = back_no;
@@ -768,8 +775,8 @@ bool fileclose(int n)
 	}
 	history_set_line(edbuf[n].path, edbuf[n].se.ly);
 
-	strcpy(close_path, edbuf[n].path);
-	if((pt = strrchr(close_path, '/')) != NULL) {
+	strcpy(temp_path, edbuf[n].path);
+	if((pt = strrchr(temp_path, '/')) != NULL) {
 		*pt = '\0';
 	}
 	edbuf_rm(n);
@@ -790,6 +797,28 @@ bool fileclose(int n)
 	return TRUE;
 }
 
+void set_temp_path(char *path)
+{
+	strcpy(temp_path, path);
+}
+
+bool filer_file_open()
+{
+	if(temp_path[0] != '\0') {
+		char fname[LN_path + 1];
+
+		fwc_setdir(temp_path);
+		fname[0] = '\0';
+		if(eff_filer(fname)) {
+			open_type = openFiler;
+			FileOpenOp(fname, openModeNormal);
+			return TRUE;
+		}
+		chdir(temp_path);
+	}
+	return FALSE;
+}
+
 void close_next()
 {
 	BackFileNo = -1;
@@ -800,11 +829,11 @@ void close_next()
 			CurrentFileNo = -1;
 		}
 	} else if(open_type == openFiler) {
-		char fname[MAXEDITLINE + 1];
+		char fname[LN_path + 1];
 
 		CurrentFileNo = -1;
 		term_cls();
-		fwc_setdir(close_path);
+		fwc_setdir(temp_path);
 		fname[0] = '\0';
 		if(eff_filer(fname)) {
 			FileOpenOp(fname, openModeNormal);
@@ -826,7 +855,7 @@ bool exec_file_close()
 	if(!file_change(BackFileNo)) {
 		n = FindOutNextFile(CurrentFileNo);
 		if(n == -1 || !file_change(n)) {
-			history_add_file(path);
+			history_add_path(path, historyOpen);
 			close_next();
 		}
 	}
@@ -880,7 +909,7 @@ SHELL void op_file_quit()
 			}
 			if(flag) {
 				filesave(edbuf[CurrentFileNo].path, TRUE);
-				history_add_file(edbuf[CurrentFileNo].path);
+				history_add_path(edbuf[CurrentFileNo].path, historyOpen);
 			}
 		}
 	}

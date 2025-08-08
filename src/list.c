@@ -369,13 +369,13 @@ void history_delete_list(int no, HistoryData *hi)
 	LastCount[no]--;
 }
 
-HistoryData *history_get_file(char *filename)
+HistoryData *history_get_path(char *path, int no)
 {
 	HistoryData *hi;
 
-	hi = BaseHistory[historyOpen].next;
+	hi = BaseHistory[no].next;
 	while(hi != NULL) {
-		if(!strcmp(hi->buffer, filename)) {
+		if(!strcmp(hi->buffer, path)) {
 			return hi;
 		}
 		hi = hi->next;
@@ -387,7 +387,7 @@ void history_set_line(char *filename, int line)
 {
 	HistoryData *hi;
 
-	if((hi = history_get_file(filename)) != NULL) {
+	if((hi = history_get_path(filename, historyOpen)) != NULL) {
 		hi->line = line;
 	}
 }
@@ -409,28 +409,42 @@ HistoryData *history_make_data(const char *buffer)
 	return hi;
 }
 
-int history_add_file(char *filename)
+char *history_get_position_path(int no, int pos)
+{
+	HistoryData *hi = LastHistory[no];
+
+	while(hi != NULL) {
+		if(pos <= 0) {
+			return hi->buffer;
+		}
+		pos--;
+		hi = hi->prev;
+	}
+	return "";
+}
+
+int history_add_path(char *path, int no)
 {
 	HistoryData *hi;
 
-	if(*filename == '\0') {
+	if(*path == '\0') {
 		return 1;
 	}
-	if((hi = history_get_file(filename)) == NULL) {
-		hi = history_make_data(filename);
-		LastCount[historyOpen]++;
+	if((hi = history_get_path(path, no)) == NULL) {
+		hi = history_make_data(path);
+		LastCount[no]++;
 	}
-	if(LastHistory[historyOpen] != hi) {
+	if(LastHistory[no] != hi) {
 		if(hi->next != NULL) {
 			hi->next->prev = hi->prev;
 		}
 		if(hi->prev != NULL) {
 			hi->prev->next = hi->next;
 		}
-		LastHistory[historyOpen]->next = hi;
+		LastHistory[no]->next = hi;
 		hi->next = NULL;
-		hi->prev = LastHistory[historyOpen];
-		LastHistory[historyOpen] = hi;
+		hi->prev = LastHistory[no];
+		LastHistory[no] = hi;
 	}
 	return hi->line;
 }
@@ -449,8 +463,35 @@ void history_save_file()
 			hi = hi->prev;
 			count++;
 		}
+		if(LastCount[historyDir] > 0) {
+			fprintf(fp, "#dir\n");
+			count = 0;
+			hi = LastHistory[historyDir];
+			while(hi != NULL && count < LastCount[historyDir] && count < sysinfo.dir_history_count) {
+				fprintf(fp, "%s\n", hi->buffer);
+				hi = hi->prev;
+				count++;
+			}
+		}
 		fclose(fp);
 	}
+}
+
+void history_add_data(char *data, int line, int no)
+{
+	HistoryData *hi = history_make_data(data);
+
+	hi->line = line;
+	hi->next = BaseHistory[no].next;
+	if(hi->next != NULL) {
+		hi->next->prev = hi;
+	}
+	hi->prev = &BaseHistory[no];
+	BaseHistory[no].next = hi;
+	if(LastCount[no] == 0) {
+		LastHistory[no] = hi;
+	}
+	LastCount[no]++;
 }
 
 void history_load_file()
@@ -458,27 +499,26 @@ void history_load_file()
 	char path[LN_path + 1];
 	char buff[LN_path];
 	FILE *fp;
+	char *pt;
+	bool dir_flag = FALSE;
 
 	sysinfo_path(path, N8_HISTORY_FILE);
 	if((fp = fopen(path, "r")) != NULL) {
 		while(fgets(buff, LN_path, fp) != NULL) {
-			char *pt;
-			if((pt = strtok(buff, ",")) != NULL) {
-				HistoryData *hi;
-				hi = history_make_data(buff);
-				if((pt = strtok(NULL, ",")) != NULL) {
-					if(isdigit(*pt)) {
-						hi->line = atoi(pt);
-						hi->next = BaseHistory[historyOpen].next;
-						if(hi->next != NULL) {
-							hi->next->prev = hi;
+			if(!strncmp(buff, "#dir", 4)) {
+				dir_flag = TRUE;
+			} else {
+				if(!dir_flag) {
+					if((pt = strtok(buff, ",\n")) != NULL) {
+						if((pt = strtok(NULL, ",\n")) != NULL) {
+							if(isdigit(*pt)) {
+								history_add_data(buff, atoi(pt), historyOpen);
+							}
 						}
-						hi->prev = &BaseHistory[historyOpen];
-						BaseHistory[historyOpen].next = hi;
-						if(LastCount[historyOpen] == 0) {
-							LastHistory[historyOpen] = hi;
-						}
-						LastCount[historyOpen]++;
+					}
+				} else {
+					if(strtok(buff, "\n") != NULL) {
+						history_add_data(buff, 1, historyDir);
 					}
 				}
 			}

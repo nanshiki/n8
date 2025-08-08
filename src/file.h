@@ -47,5 +47,7 @@ int FileOpenOp(const char *path, int mode);
 bool fileclose(int n);
 int SelectFileMenu();
 void sysinfo_path(char *s, const char *t);
+void set_temp_path(char *path);
+bool filer_file_open();
 
 #endif

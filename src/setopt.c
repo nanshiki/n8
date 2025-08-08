@@ -481,32 +481,24 @@ void dir_init()
 	char *p;
 
 	clear_string_item(itemDir);
-	add_string_item(itemDir, "0 ~ <home dir>");
+	add_string_item(itemDir, "~ <home dir>");
 	if((p = getenv("N8_PATH")) != NULL) {
 		char str[MAXLINESTR + 1];
-		char count = '1';
 		int length;
 
-		length = 2;
-		str[0] = count++;
-		str[1] = ' ';
+		length = 0;
 		while(*p != '\0') {
 			if(*p == ':') {
-				if(length > 2) {
+				if(length > 0) {
 					str[length] = '\0';
 					add_string_item(itemDir, str);
-					str[0] = count++;
-					length = 2;
-					if(count > '9') {
-						break;
-					}
 				}
 			} else if(length < MAXLINESTR) {
 				str[length++] = *p;
 			}
 			p++;
 		}
-		if(length > 2) {
+		if(length > 0) {
 			str[length] = '\0';
 			add_string_item(itemDir, str);
 		}
@@ -566,6 +558,7 @@ void sysinfo_optset()
 	}
 
 	sysinfo.file_history_count = hash_get_int(sysinfo.vp_def, "FileHistoryCount");
+	sysinfo.dir_history_count = hash_get_int(sysinfo.vp_def, "DirHistoryCount");
 
 	sysinfo.japanesef   = hash_istrue(sysinfo.vp_def, "Japanese");
 	sysinfo.crmarkf     = hash_istrue(sysinfo.vp_def, "crmark");
@@ -702,6 +695,7 @@ void opt_default()
 	hash_set(sysinfo.vp_def, "ambiguous", "2");
 	hash_set(sysinfo.vp_def, "framechar", "ascii");
 	hash_set_int(sysinfo.vp_def, "FileHistoryCount", DEFAULT_FILE_HISTORY_COUNT);
+	hash_set_int(sysinfo.vp_def, "DirHistoryCount", DEFAULT_DIR_HISTORY_COUNT);
 	hash_set(sysinfo.vp_def, "sort", "filename");
 	hash_set(sysinfo.vp_def, "asksave", "on");
 

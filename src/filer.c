@@ -13,6 +13,7 @@
 #include "input.h"
 #include "crt.h"
 #include "setopt.h"
+#include "list.h"
 #include "sh.h"
 #include "../lib/misc.h"
 
@@ -1110,10 +1111,11 @@ void dir_set_proc(int a, mitem_t *mip, void *vp)
 {
 	char *str;
 
+	int c = (a < 10) ? '0' + a : 'A' + a - 10;
 	if((str = get_string_item(itemDir, a)) != NULL) {
-		strcpy(mip->str, str);
+		sprintf(mip->str, "%c %s", c, str);
 	} else {
-		strcpy(mip->str, "");
+		sprintf(mip->str, "%c %s", c, history_get_position_path(historyDir, a - get_string_item_count(itemDir)));
 	}
 }
 
@@ -1121,23 +1123,34 @@ void fw_dir()
 {
 	menu_t menu;
 	char *str;
-	int count, res;
+	int hcount, icount, acount;
+	int res;
 
-	if((count = get_string_item_count(itemDir)) > 0) {
+	hcount = history_get_last_count(historyDir);
+	if(hcount > sysinfo.dir_history_count) {
+		hcount = sysinfo.dir_history_count;
+	}
+	icount = get_string_item_count(itemDir);
+	acount = hcount + icount;
+	if(acount >= term_sizey() - 3) {
+		acount = term_sizey() - 3;
+	}
+	if(acount > 0) {
 		menu_iteminit(&menu);
 		menu.drp->x = DIR_MENU_X;
 		menu.drp->y = MENU_Y;
-		menu_itemmake(&menu, dir_set_proc, count, NULL);
+		menu_itemmake(&menu, dir_set_proc, acount, NULL);
 		res = menu_select(&menu);
 		menu_itemfin(&menu);
-		if((str = get_string_item(itemDir, res)) != NULL) {
-			if(*str == '0') {
-				str = "~";
-			} else {
-				str += 2;
-				while(*str == ' ') {
-					str++;
+		if(res >= 0) {
+			if(res < icount) {
+				if((str = get_string_item(itemDir, res)) != NULL) {
+					if(res == 0) {
+						str = "~";
+					}
 				}
+			} else {
+				str = history_get_position_path(historyDir, res - icount);
 			}
 			fwc_chdir(str, TRUE);
 			fw_make(&fw[eff.wa]);
