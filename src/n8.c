@@ -78,7 +78,6 @@ void n8_loop(int region)
 			}
 		}
 	}
-	history_save_file();
 }
 
 void n8_init()
@@ -176,6 +175,8 @@ bool n8_arg(int argc, char *argv[])
 		} else {
 			if(FileOpenOp(argv[optcount], openModeNormal) == openOK) {
 			 	f = TRUE;
+			} else if(dir_isdir(argv[optcount])) {
+				set_temp_path(argv[optcount]);
 			}
 		}
 	}
@@ -229,11 +230,14 @@ int main(int argc, char *argv[])
 	system_guide_init();
 	*sysinfo.doublekey = '\0';
 	if(!open_flag) {
-		op_file_open();
+		if(!filer_file_open()) {
+			op_file_open();
+		}
 	}
 	if(CurrentFileNo < MAX_edbuf) {
 		n8_loop(0);
 	}
+	history_save_file();
 }
 
 /*-------------------------------------------------------------------
