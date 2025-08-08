@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.1.0"
+#define	VER "4.1.1"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,6 +57,7 @@ enum {
 	historyShell,
 	historyUndo,
 	historyMask,
+	historyDir,
 
 	historyMax
 };
@@ -89,6 +90,7 @@ enum {
 #define MAXFILEMENU	512
 
 #define DEFAULT_FILE_HISTORY_COUNT	30
+#define DEFAULT_DIR_HISTORY_COUNT	10
 #define N8_HISTORY_FILE				"n8file"
 #define N8_LOCK_FILE				"n8lock"
 
@@ -206,6 +208,7 @@ typedef struct
 	bool asksavef;
 
 	int file_history_count;
+	int dir_history_count;
 	int ambiguous;
 	int framechar;
 	int afterclose;
