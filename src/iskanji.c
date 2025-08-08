@@ -655,6 +655,30 @@ int is_combining_char(const char *p)
 	return FALSE;
 }
 
+int is_svs_select_char(const char *p)
+{
+	const unsigned char *pu = (const unsigned char *)p;
+	if(*pu == 0xef && *(pu + 1) == 0xb8 && *(pu + 2) >= 0x80 && *(pu + 2) <= 0x8f) {
+		// 異体字・絵文字セレクタ
+		return TRUE;
+	}
+	return FALSE;
+}
+
+int is_ivs_select_char(const char *p)
+{
+	const unsigned char *pu = (const unsigned char *)p;
+	if(*pu == 0xf3 && *(pu + 1) == 0xa0) {
+		// 異体字セレクタ
+		if(*(pu + 2) >= 0x84 && *(pu + 2) <= 0x86 && *(pu + 3) >= 0x80 && *(pu + 2) <= 0xbf) {
+			return TRUE;
+		} else if(*(pu + 2) == 0x87 && *(pu + 3) >= 0x80 && *(pu + 2) <= 0xaf) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 int kanji_countbuf(const char *p)
 {
 	unsigned char ch = (unsigned char)*p & 0xf0;
@@ -662,15 +686,23 @@ int kanji_countbuf(const char *p)
 	if(*p == 0) {
 		return 0;
 	} else if(ch == 0xc0 || ch == 0xd0) {
+		if(is_svs_select_char(p + 2)) {
+			return 5;
+		}
 		return 2;
 	} else if(ch == 0xe0) {
-		if(is_combining_char(p)) {
+		if(is_combining_char(p) || is_svs_select_char(p)) {
 			return 0;
-		} else if(is_combining_char(p + 3)) {
+		} else if(is_combining_char(p + 3) || is_svs_select_char(p + 3)) {
 			return 6;
+		} else if(is_ivs_select_char(p + 3)) {
+			return 7;
 		}
 		return 3;
 	} else if(ch == 0xf0) {
+		if(is_ivs_select_char(p)) {
+			return 0;
+		}
 		return 4;
 	}
 	return 1;

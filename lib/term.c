@@ -911,8 +911,11 @@ int term_puts(const char *s, const char *ac)
 						ac += 2;
 					}
 				} else {
-					// 濁点・半濁点合成文字
 					if(n == 0xe38299 || n == 0xe3829a) {
+						// 濁点・半濁点合成文字
+						redraw = TRUE;
+					} else if(n >= 0xefb880 && n <= 0xefb88f) {
+						// 異体字・絵文字セレクタ
 						redraw = TRUE;
 					}
 					term.scr[term.y][term.x] = n;
@@ -928,7 +931,11 @@ int term_puts(const char *s, const char *ac)
 					}
 				}
 			} else if(len == 4) {
-				n = (*s & 0xff) << 24 | (*(s + 1) & 0xff) << 16 | (*(s + 2) & 0xff) << 8 | (*(s + 3) & 0xff);
+				n = ((unsigned long)(*s & 0xff)) << 24 | (*(s + 1) & 0xff) << 16 | (*(s + 2) & 0xff) << 8 | (*(s + 3) & 0xff);
+				if(n >= 0xf3a08480L && n <= 0xf3a087afL) {
+					// 異体字セレクタ
+					redraw = TRUE;
+				}
 				term.scr[term.y][term.x] = n;
 				term.attr[term.y][term.x] = attr;
 				term.x++;
