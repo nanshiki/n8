@@ -70,6 +70,9 @@ void menu_itemmake(menu_t *mnp, void func(int, mitem_t *, void *), size_t nums, 
 	ln += 4;
 	if(check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) {
 		ln += 2;
+		if(ln & 1) {
+			ln++;
+		}
 	}
 	dsp_regresize(mnp->drp, ln, min(mnp->nums + 2, dspall.sizey - 2));
 	dsp_regadd(mnp->drp);
