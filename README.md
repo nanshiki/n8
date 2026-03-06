@@ -13,8 +13,8 @@ Linuxの動作するシングルボードコンピュータRaspberry Pi、Rock 5
 設定でメニュー枠文字を変更すると DOS/V 版 VZ Editor の外観に近くなります。  
 
 ## 画面
-![検索](https://www.nanshiki.co.jp/software/n8search.png)
-![分割](https://www.nanshiki.co.jp/software/n8teraterm.png)
+![検索](https://imgur.com/ISlogce.png)
+![分割](https://imgur.com/91fN89f.png)
 こちらの[紹介ページ](https://www.nanshiki.co.jp/software/n8.html)にも画面があります。  
 
 ## neからの変更点
