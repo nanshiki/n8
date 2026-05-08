@@ -7,7 +7,7 @@ typedef	struct
 	color_t nc; /* normal時 */
 	color_t cc; /* cursorがある時 */
 
-	bool mf;	/* mark flag */
+	int mf;	/* mark flag */
 } mitem_t;
 
 typedef	struct
@@ -17,7 +17,7 @@ typedef	struct
 
 	char *title;
 	char *footer;
-	bool df;				/* filerで利用するdisable flag */
+	int df;				/* filerで利用するdisable flag */
 
 	int sy, cy;			/* 現在の座標 */
 
@@ -29,7 +29,7 @@ void menu_itemmakelists(menu_t *mnp, size_t width, size_t num, char *s);
 void menu_iteminit(menu_t *mnp);
 void menu_itemfin(menu_t *mnp);
 void menu_dview(menu_t *mnp);
-void menu_itemview(menu_t *mnp, int a, bool f);
+void menu_itemview(menu_t *mnp, int a, int f);
 void menu_view(menu_t *mnp);
 void menu_csrmove(menu_t *mnp, int ly);
 int menu_csrnext(menu_t *mnp, char c);
@@ -37,7 +37,7 @@ int menu_select(menu_t *mnp);
 int menu_vselect(char *title, int x, int y, size_t num, ...);
 dspreg_t *menu_regset(menu_t *mnp);
 
-void make_frame_top_bottom(char *buf, char *msg, int size, bool bottom);
+void make_frame_top_bottom(char *buf, char *msg, int size, int bottom);
 int menu_set_footer(char *footer);
 
 #endif

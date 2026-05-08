@@ -74,7 +74,7 @@ void menu_itemmake(menu_t *mnp, void func(int, mitem_t *, void *), size_t nums, 
 			ln++;
 		}
 	}
-	dsp_regresize(mnp->drp, ln, min(mnp->nums + 2, dspall.sizey - 2));
+	dsp_regresize(mnp->drp, ln, min((int)mnp->nums + 2, dspall.sizey - 2));
 	dsp_regadd(mnp->drp);
 }
 
@@ -125,7 +125,7 @@ int menu_vselect(char *title, int x, int y, size_t num, ...)
 		menu.drp->y = y;
 	}
 	if(menu.drp->y > dspall.sizey - num - 3) {
-		menu.drp->y = dspall.sizey - num - 3;
+		menu.drp->y = (int)(dspall.sizey - num - 3);
 	}
 	va_start(args, num);
 	menu_itemfin(&menu);
@@ -152,7 +152,7 @@ int menu_vselect(char *title, int x, int y, size_t num, ...)
 			ln++;
 		}
 	}
-	dsp_regresize(menu.drp, ln, min(menu.nums + 2, dspall.sizey - 2));
+	dsp_regresize(menu.drp, ln, min((int)menu.nums + 2, dspall.sizey - 2));
 	dsp_regadd(menu.drp);
 	va_end(args);
 
@@ -174,7 +174,7 @@ void menu_csrmove(menu_t *mnp, int ly)
 
 	ly_b = mnp->cy + mnp->sy;
 	ly = max(ly, 0);
-	ly = min(ly, mnp->nums - 1);
+	ly = min(ly, (int)mnp->nums - 1);
 	if(ly_b == ly) {
 		return;
 	}
@@ -221,7 +221,7 @@ char vertical_line_char[] = { (char)0xe2, 0x95 ,(char)0x91, 0x00 };
 char left_bottom_char[] = { (char)0xe2, 0x95 ,(char)0x9a, 0x00 };
 char right_bottom_char[] = { (char)0xe2, 0x95 ,(char)0x9d, 0x00 };
 
-void make_frame_top_bottom(char *buf, char *msg, int size, bool bottom)
+void make_frame_top_bottom(char *buf, char *msg, int size, int bottom)
 {
 	int a, w, pos;
 	int flag = FALSE;
@@ -255,7 +255,7 @@ void make_frame_top_bottom(char *buf, char *msg, int size, bool bottom)
 			w += 4;
 		}
 	}
-	a = strlen(buf);
+	a = (int)strlen(buf);
 	if(*msg != '\0') {
 		buf[a++] = ' ';
 		if(flag) {
@@ -374,7 +374,7 @@ int menu_select(menu_t *mnp)
 			menu_csrmove(mnp, 0);
 			continue;
 		case KF_SysCursorendside:
-			menu_csrmove(mnp, mnp->nums - 1);
+			menu_csrmove(mnp, (int)mnp->nums - 1);
 			continue;
 		case KF_SysReturn:
 			c = mnp->cy + mnp->sy;
