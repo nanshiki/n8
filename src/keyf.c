@@ -186,7 +186,7 @@ void km_macro(keydef_t *def)
 	km.mode = KM_do;
 
 	km.x = 0;
-	km.n = list->n;
+	km.n = (int)list->n;
 	memcpy(km.buf, list->buf, list->n * sizeof(int));
 }
 
@@ -347,7 +347,7 @@ int get_keyf(int region)
 int keysel(const char *s, const char *t)
 {
 	int c;
-	char *y, *n;
+	const char *y, *n;
 
 	y = strchr(t, 'y');
 	n = strchr(t, 'n');
@@ -372,7 +372,7 @@ int keysel(const char *s, const char *t)
 	return tolower(c);
 }
 
-bool keysel_ynq(const char *s)
+int keysel_ynq(const char *s)
 {
 	char tmpbuff[MAXLINESTR + 1];
 	char c;
