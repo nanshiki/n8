@@ -43,13 +43,57 @@
 #include "generic.h"
 #include "regexp.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <shlwapi.h>
+#define	strcasestr	StrStrIA
+#pragma comment(lib, "shlwapi.lib")
 
-/* ¸¡º÷ */
+#define REG_POSIX_ENCODING_UTF8      3
 
-bool regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool nocasef)
+typedef int (*f_regcomp)(regex_t *, const char *, int);
+typedef int (*f_regexec)(regex_t *,const char *, size_t, regm_t *, int);
+typedef void (*f_regfree)(regex_t *);
+typedef size_t (*f_regerror)(int, const regex_t *reg, char *, size_t);
+typedef void (*f_reg_set_encoding)(int enc);
+
+static int regexp_flag;
+f_regcomp regcomp;
+f_regexec regexec;
+f_regfree regfree;
+f_regerror regerror;
+f_reg_set_encoding reg_set_encoding;
+
+int regexp_init()
 {
-	static char regexp_str[1024 + 1]={""};
-	static bool regexp_casef;
+	HMODULE hm;
+
+	if((hm = LoadLibraryA("onigmo.dll")) != NULL) {
+		regcomp = (f_regcomp)GetProcAddress(hm, "regcomp");
+		regexec = (f_regexec)GetProcAddress(hm, "regexec");
+		regfree = (f_regfree)GetProcAddress(hm, "regfree");
+		regerror = (f_regerror)GetProcAddress(hm, "regerror");
+		reg_set_encoding = (f_reg_set_encoding)GetProcAddress(hm, "reg_set_encoding");
+		if(regcomp != NULL && regexec != NULL && regfree != NULL && regerror != NULL && reg_set_encoding != NULL) {
+			reg_set_encoding(REG_POSIX_ENCODING_UTF8);
+			regexp_flag = TRUE;
+		}
+	}
+	return regexp_flag;
+}
+
+int get_regexp_enable()
+{
+	return regexp_flag;
+}
+#endif
+
+/* search */
+
+int regexp_exec(const char *s, int x, const char *t, regm_t *rmp, int nocasef)
+{
+	static char regexp_str[2048 + 1] = {""};
+	static int regexp_casef;
 	static regex_t regexp_exp;
 
 	int a;
@@ -65,13 +109,6 @@ bool regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool nocasef)
 		strcpy(regexp_str, t);
 		regexp_casef = nocasef;
 	}
-/*
-	rmp->rm_so = x;
-	rmp->rm_eo = strlen(s);
-
-	a = (x == 0) ? REG_STARTEND : REG_NOTBOL | REG_STARTEND;
-	return regexec(&regexp_exp, s, 1, rmp, a) == 0 && rmp->rm_so != -1;
-*/
 	a = x == 0 ? 0 : REG_NOTBOL;
 	if(regexec(&regexp_exp, s + x, 1, rmp, a) != 0 || rmp->rm_so == -1) {
 		return FALSE;
@@ -81,7 +118,7 @@ bool regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool nocasef)
 	return TRUE;
 }
 
-bool no_regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool nocasef)
+int no_regexp_exec(const char *s, int x, const char *t, regm_t *rmp, int nocasef)
 {
 	const char *p;
 
@@ -93,20 +130,24 @@ bool no_regexp_exec(const char *s, int x, const char *t, regm_t *rmp, bool nocas
 	if(p == NULL) {
 		return FALSE;
 	}
-	rmp->rm_so = p - s;
-	rmp->rm_eo = rmp->rm_so + strlen(t);
+	rmp->rm_so = (off_t)(p - s);
+	rmp->rm_eo = (off_t)(rmp->rm_so + strlen(t));
 	return TRUE;
 }
 
-bool regexp_seeknext(const char *s, const char *t, int x, regm_t *rmp, bool regf, bool nocasef)
+int regexp_seeknext(const char *s, const char *t, int x, regm_t *rmp, int regf, int nocasef)
 {
+#ifdef _WIN32
+	if(regf && regexp_flag) {
+#else
 	if(regf) {
+#endif
 		return *t != '\0' && regexp_exec(s, x, t, rmp, nocasef);
 	}
 	return *t != '\0' && no_regexp_exec(s, x, t, rmp, nocasef);
 }
 
-bool regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, bool regf, bool nocasef)
+int regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, int regf, int nocasef)
 {
 	regm_t rm;
 
@@ -114,12 +155,16 @@ bool regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, bool regf
 		return FALSE;
 	}
 	if(x > strlen(s)) {
-		x = strlen(s);
+		x = (int)strlen(s);
 	}
 	rmp->rm_so = -1;
 	rm.rm_so = 0;
 	for(;;) {
+#ifdef _WIN32
+		if(regf && regexp_flag) {
+#else
 		if(regf) {
+#endif
 			if(!regexp_exec(s, rm.rm_so, t, &rm, nocasef)) {
 				break;
 			}

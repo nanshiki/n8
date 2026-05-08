@@ -33,16 +33,41 @@
  * SUCH DAMAGE.
  */
 
-#ifdef	HAVE_REGEX_H
-#	include	<regex.h>
-typedef regmatch_t regm_t;
-#else
+#ifdef _WIN32
+#include <sys/types.h>
+#define REG_ICASE          (1<<0)
+#define REG_NEWLINE        (1<<1)
+#define REG_NOTBOL         (1<<2)
+#define REG_NOTEOL         (1<<3)
+#define REG_EXTENDED       (1<<4)
+#define REG_NOSUB          (1<<5)
+
+typedef struct {
+	void* onig;
+	size_t re_nsub;
+	int comp_options;
+} regex_t;
+
 typedef struct
 {
 	off_t rm_so;
 	off_t rm_eo;
 } regm_t;
+int regexp_init();
+int get_regexp_enable();
+#else
+ #ifdef HAVE_REGEX_H
+  #include	<regex.h>
+  typedef regmatch_t regm_t;
+ #else
+  #include <sys/types.h>
+  typedef struct
+  {
+	off_t rm_so;
+	off_t rm_eo;
+  } regm_t;
+ #endif
 #endif
 
-extern bool regexp_seeknext(const char *s, const char *t, int x, regm_t *rmp, bool regf, bool casef);
-extern bool regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, bool regf, bool casef);
+extern int regexp_seeknext(const char *s, const char *t, int x, regm_t *rmp, int regf, int casef);
+extern int regexp_seekprev(const char *s, const char *t, int x, regm_t *rmp, int regf, int casef);
