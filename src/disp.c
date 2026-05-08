@@ -39,7 +39,7 @@ void dsp_fmtsfin(dspfmt_t *dfp)
 
 void dsp_regresize(dspreg_t *drp, int sizex, int sizey)
 {
-	int i, a;
+	int a;
 
 	if(sizex > dspall.sizex) {
 		sizex = dspall.sizex;
