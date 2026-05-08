@@ -3,18 +3,20 @@ n8
 
 erukiti氏作のVz cloneなテキストエディタ[ne](https://github.com/erukiti/ne)のUTF-8対応版です。  
 neは[nice editor](https://ne.di.unimi.it/)と被るため、n8に改名しました。  
-LinuxはUbuntu 24.04、AlmaLinux 9、Fedora 41、FreeBSDは13.5、14.2、macOSはMonterey、Sequoiaで動作確認しています。  
+Windows 10、11、LinuxはUbuntu 24.04、26.04、AlmaLinux 9、Fedora 41、FreeBSDは13.5、14.2、macOSはMonterey、Sequoiaで動作確認しています。  
 Linuxの動作するシングルボードコンピュータRaspberry Pi、Rock 5B、Armadillo 640でも動作確認しています。  
 ターミナルはTeraTerm、RLogin、PuTTYで動作確認しています。  
+Windows版の場合Windows Terminalを使用してください。  
 
 [VZ Editor](https://github.com/vcraftjp/VZEditor)の主要な操作方法・機能を実装しています。ファイラーも装備しておりファイルコピー等が実行できます。  
-文字コードJIS/ShiftJIS/EUC/UTF-8を自動判定しUTF-8に変換して編集します。保存時には元の文字コードに戻しますが、文字コードを変更して保存も可能です。  
+文字コードJIS/ShiftJIS/EUC/UTF-8/UTF-16(要BOM)を自動判定しUTF-8に変換して編集します。保存時には元の文字コードに戻しますが、文字コードを変更して保存も可能です。  
 キーボードマクロはありますが、マクロ言語は搭載していません。  
 設定でメニュー枠文字を変更すると DOS/V 版 VZ Editor の外観に近くなります。  
 
 ## 画面
 ![検索](https://imgur.com/ISlogce.png)
 ![分割](https://imgur.com/91fN89f.png)
+![Windows版](https://imgur.com/961ZTbd.png)
 こちらの[紹介ページ](https://www.nanshiki.co.jp/software/n8.html)にも画面があります。  
 
 ## neからの変更点
@@ -36,6 +38,11 @@ Linuxの動作するシングルボードコンピュータRaspberry Pi、Rock 5
 修正履歴は[ChangeLog.txt](https://github.com/nanshiki/n8/blob/main/ChangeLog.txt)を参照してください。  
 
 ## ビルド
+### Windows  
+Visual Studio 2022 で n8.sln を読み込み、ビルドしてください。  
+以前の Visual Studio でビルドする場合は、プラットフォームツールセットを対応するバージョンに変更してください。  
+
+### Linux、FreeBSD、macOS  
 $ ./configure  
 $ make  
 $ sudo make install  
