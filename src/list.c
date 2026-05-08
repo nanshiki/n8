@@ -15,6 +15,7 @@
 #include "list.h"
 #include "file.h"
 #include "cursor.h"
+#include "../lib/misc.h"
 #include <ctype.h>
 
 /*Base Pointer*/
@@ -53,7 +54,7 @@ void lists_debug()
 
 	fprintf(stderr, "byte/size buffer\n");
 	while(ed != NULL) {
-		fprintf(stderr, "%4ld/%4ld %p[%s]\n", ed->bytes, ed->size, ed->buffer, ed->buffer);
+		fprintf(stderr, "%4ld/%4ld %p[%s]\n", (long)ed->bytes, (long)ed->size, ed->buffer, ed->buffer);
 		ed = ed->next;
 	}
 	fprintf(stderr, "***\n");
@@ -108,9 +109,12 @@ EditLine *MakeLine(const char *buffer)
 
 	pli = (EditLine *)mem_alloc(sizeof(EditLine));
 
-	n = strlen(buffer);
-	pli->buffer = (char *)mem_alloc(sizeof(char)*(n + 1));
-	strcpy(pli->buffer, buffer);
+	n = (int)strlen(buffer);
+	if(n > MAXEDITLINE) {
+		n = MAXEDITLINE;
+	}
+	pli->buffer = (char *)mem_alloc(sizeof(char) * (n + 1));
+	n = strjcpy(pli->buffer, buffer, MAXEDITLINE);
 	pli->size = n;
 	pli->bytes = n;
 	return pli;
@@ -118,7 +122,6 @@ EditLine *MakeLine(const char *buffer)
 
 void Realloc(EditLine *li, const char *s)
 {
-	char *p;
 	size_t n;
 
 	n = strlen(s);
@@ -238,7 +241,7 @@ size_t lists_size(long n_st, long n_en)
 		if(ed == NULL || ed->buffer == NULL) {
 			break;
 		}
-		a += strlen(ed->buffer);
+		a += (int)strlen(ed->buffer);
 		if(ed->next != NULL) {
 			++a;
 		}
@@ -375,7 +378,11 @@ HistoryData *history_get_path(char *path, int no)
 
 	hi = BaseHistory[no].next;
 	while(hi != NULL) {
+#ifdef _WIN32
+		if(!_stricmp(hi->buffer, path)) {
+#else
 		if(!strcmp(hi->buffer, path)) {
+#endif
 			return hi;
 		}
 		hi = hi->next;
@@ -399,7 +406,7 @@ HistoryData *history_make_data(const char *buffer)
 
 	hi = (HistoryData *)mem_alloc(sizeof(HistoryData));
 
-	n = strlen(buffer);
+	n = (int)strlen(buffer);
 	hi->buffer = (char *)mem_alloc(sizeof(char) * (n + 1));
 	strcpy(hi->buffer, buffer);
 	hi->line = 1;
@@ -500,7 +507,7 @@ void history_load_file()
 	char buff[LN_path];
 	FILE *fp;
 	char *pt;
-	bool dir_flag = FALSE;
+	int dir_flag = FALSE;
 
 	sysinfo_path(path, N8_HISTORY_FILE);
 	if((fp = fopen(path, "r")) != NULL) {
