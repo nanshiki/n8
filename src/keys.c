@@ -2,7 +2,9 @@
 #include "keys.h"
 #include "sh.h"
 #include "../lib/misc.h"
+#ifndef _WIN32
 #include <termcap.h>
+#endif
 #include <ctype.h>
 
 int keyf_getname(const char *s, int n)
@@ -35,7 +37,7 @@ void keyf_setarg(keydef_t *kdp, const char *s)
 {
 	char buf[2048 + 1], *p;
 	int n;
-	bool f;
+	int f;
 
 	while(*s != '\0' && isspace(*s)) {
 		++s;
@@ -79,8 +81,8 @@ void keyf_set(int region, const char *k, const char *s)
 	keydef_t *kdp;
 	int key[2];
 	int n;
-	char buf[LN_buf + 1], *p;
-
+	char buf[LN_buf + 1];
+	const char *p;
 
 	p = strchr(s, ' ');
 	if(p == NULL) {
