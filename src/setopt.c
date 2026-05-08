@@ -19,10 +19,19 @@
 #include "keyf.h"
 #include "keys.h"
 #include "filer.h"
-#include "../lib/term_inkey.h"
 #include "sh.h"
+#include "../lib/term_inkey.h"
 #include <ctype.h>
+#ifdef _WIN32
+#include <windows.h>
+#include "../lib/regexp.h"
+int regcomp(regex_t *, const char *, int);
+int regexec(regex_t *,const char *, size_t, regm_t *, int);
+void regfree(regex_t *);
+#else
 #include <regex.h>
+#endif
+#include "../lib/misc.h"
 
 enum {
 	optionCrMark,
@@ -52,7 +61,7 @@ enum {
 	optionSearchMax
 };
 
-static char *opt_kc[] = {"EUC", "JIS", "ShiftJIS", "UTF-8", "UTF-8 BOM" };
+static char *opt_kc[] = {"EUC", "JIS", "ShiftJIS", "UTF-8", "UTF-8 BOM", "UTF-16LE", "UTF-16BE" };
 static char *opt_rm[] = {"LF", "CRLF", "CR"};
 static char *opt_am[] = {"1", "2", "Emoji2" };
 
@@ -73,16 +82,20 @@ void key_set()
 
 		keyf_set(0, "[ESC]O",        "file_open");
 		keyf_set(0, "[ESC]C",        "file_close");
-		keyf_set(0, "[ESC]L",        "file_copen");
 		keyf_set(0, "[ESC]S",        "file_save");
-		keyf_set(0, "[ESC]Q",        "file_quit");
-
+		keyf_set(0, "[ESC]N",        "file_open_new");
+		keyf_set(0, "[ESC]R",        "file_open_readonly");
+		keyf_set(0, "[ESC]L",        "file_copen");
 		keyf_set(0, "[ESC]P",        "file_rename");
-
+		keyf_set(0, "[ESC]D",        "file_duplicate");
 		keyf_set(0, "[ESC]U",        "file_undo");
 		keyf_set(0, "[ESC]I",        "file_insert");
 		keyf_set(0, "[ESC]X",        "file_aclose");
+		keyf_set(0, "[ESC]E",        "misc_exec");
+		keyf_set(0, "[ESC]G",        "misc_insert_output");
+		keyf_set(0, "[ESC]Q",        "file_quit");
 
+		keyf_set(0, "^KR",           "file_readonly");
 
 		keyf_set(0, "^E",            "cursor_up");
 		keyf_set(0, "[UP]",          "cursor_up");
@@ -93,22 +106,33 @@ void key_set()
 		keyf_set(0, "^D",            "cursor_right");
 		keyf_set(0, "[RIGHT]",       "cursor_right");
 		keyf_set(0, "^A",            "cursor_tkprev");
+		keyf_set(0, "\\[LEFT]",      "cursor_tkprev");
 		keyf_set(0, "^F",            "cursor_tknext");
+		keyf_set(0, "\\[RIGHT]",     "cursor_tknext");
 		keyf_set(0, "^QS",           "cursor_sleft");
 		keyf_set(0, "[HOME]",        "cursor_sleft");
+		keyf_set(0, "^[LEFT]",       "cursor_sleft");
 		keyf_set(0, "^QD",           "cursor_sright");
 		keyf_set(0, "[END]",         "cursor_sright");
+		keyf_set(0, "^[RIGHT]",      "cursor_sright");
 		keyf_set(0, "^W",            "cursor_rup");
+		keyf_set(0, "\\[PGUP]",      "cursor_rup");
 		keyf_set(0, "^Z",            "cursor_rdown");
+		keyf_set(0, "\\[PGDN]",      "cursor_rdown");
 		keyf_set(0, "^R",            "cursor_pup");
 		keyf_set(0, "[PGUP]",        "cursor_pup");
+		keyf_set(0, "\\[UP]",        "cursor_pup");
 		keyf_set(0, "^C",            "cursor_pdown");
 		keyf_set(0, "[PGDN]",        "cursor_pdown");
+		keyf_set(0, "\\[DOWN]",      "cursor_pdown");
 		keyf_set(0, "^QE",           "cursor_sup");
+		keyf_set(0, "\\[UP]",        "cursor_sup");
 		keyf_set(0, "^QX",           "cursor_sdown");
+		keyf_set(0, "\\[DOWN]",      "cursor_sdown");
 		keyf_set(0, "^QR",           "cursor_top");
+		keyf_set(0, "^[PGUP]",       "cursor_top");
 		keyf_set(0, "^QC",           "cursor_bottom");
-
+		keyf_set(0, "^[PGDN]",       "cursor_bottom");
 
 		keyf_set(0, "^QP",           "jump_before");
 		keyf_set(0, "^QM",           "jump_mark");
@@ -125,17 +149,15 @@ void key_set()
 		keyf_set(0, "^Q4",           "Jump_before 4");
 
 		keyf_set(0, "^QG",           "jump_tag");
-
-
+		keyf_set(0, "\\[F10]",       "jump_tag");
 
 		keyf_set(0, "[CR]",          "line_cr");
 
 		keyf_set(0, "^U",            "char_undo");
 		keyf_set(0, "^P",            "char_input");
 
-		keyf_set(0, "^N",            "line_cr");
+		keyf_set(0, "^N",            "line_new");
 		keyf_set(0, "^QL",           "line_undo");
-
 
 		keyf_set(0, "^H",            "del_bs");
 		keyf_set(0, "[BS]",          "del_bs");
@@ -143,9 +165,10 @@ void key_set()
 		keyf_set(0, "[DEL]",         "del_char");
 		keyf_set(0, "^QH",           "del_tkprev");
 		keyf_set(0, "^T",            "del_tknext");
+		keyf_set(0, "\\[DEL]",        "del_tknext");
 		keyf_set(0, "^QT",           "del_sleft");
 		keyf_set(0, "^QY",           "del_sright");
-
+		keyf_set(0, "^[DEL]",        "del_sright");
 
 		keyf_set(0, "^B",            "block_start");
 		keyf_set(0, "[F10]",         "block_start");
@@ -154,14 +177,16 @@ void key_set()
 		keyf_set(0, "^J",            "block_paste");
 		keyf_set(0, "[F09]",         "block_paste");
 		keyf_set(0, "^KK",           "block_yanc");
+		keyf_set(0, "\\[F08]",       "block_yanc");
 		keyf_set(0, "^KC",           "block_copy");
+		keyf_set(0, "\\[F09]",       "block_copy");
 		keyf_set(0, "^KY",           "block_kill");
 		keyf_set(0, "^QB",           "block_chlast");
 
 		keyf_set(0, "^KD",           "block_dup");
 
-
 		keyf_set(0, "^@",            "search_paging");
+		keyf_set(0, "\\[INS]",       "search_paging");
 
 		keyf_set(0, "^QF",           "search_in");
 		keyf_set(0, "[F06]",         "search_in");
@@ -172,18 +197,20 @@ void key_set()
 		keyf_set(0, "^L",            "search_getword");
 		keyf_set(0, "[F05]",         "search_getword");
 
-
-
 		keyf_set(0, "^_",            "misc_kmacro");
+		keyf_set(0, "^\\",           "misc_kmacro");
 		keyf_set(0, "^V",            "opt_set OverWrite");
 		keyf_set(0, "[INS]",         "opt_set OverWrite");
-		keyf_set(0, "[ESC]E",        "misc_exec");
 
 		keyf_set(0, "[F01]",         "menu_file");
-		keyf_set(0, "[F04]",         "menu_opt");
+		keyf_set(0, "[F12]",         "menu_opt");
+		keyf_set(0, "\\[F01]",       "menu_opt");
 		keyf_set(0, "^KI",           "opt_tab");
 
-		keyf_set(0, "[ESC]D",        "misc_redraw");
+		keyf_set(0, "[F04]",         "file_split");
+		keyf_set(0, "^QV",           "file_splitmove");
+
+		keyf_set(0, "[ESC]V",        "misc_redraw");
 	}
 
 	n = keydef_num(1);
@@ -207,16 +234,25 @@ void key_set()
 		keyf_set(1, "^P",            "sysCntrlinput");
 
 		keyf_set(1, "^R",            "sysScrolldown");
+		keyf_set(1, "\\[UP]",        "sysScrolldown");
 		keyf_set(1, "^C",            "sysScrollup");
+		keyf_set(1, "\\[DOWN]",      "sysScrollup");
 		keyf_set(1, "^W",            "sysRollup");
+		keyf_set(1, "^[UP]",         "sysRollup");
 		keyf_set(1, "^Z",            "sysRolldown");
+		keyf_set(1, "^[DOWN]",       "sysRolldown");
 
 		keyf_set(1, "^QE",           "sysCursorupside");
 		keyf_set(1, "^QX",           "sysCursordownside");
 		keyf_set(1, "^QS",           "sysCursorleftside");
+		keyf_set(1, "\\[LEFT]",      "sysCursorleftside");
 		keyf_set(1, "^QD",           "sysCursorrightside");
+		keyf_set(1, "\\[RIGHT]",     "sysCursorrightside");
 		keyf_set(1, "^QR",           "sysCursortopside");
 		keyf_set(1, "^QC",           "sysCursorendside");
+
+		keyf_set(1, "[F12]",          "sysOptionMenu");
+		keyf_set(1, "\\[F01]",        "sysOptionMenu");
 	}
 
 	n = keydef_num(2);
@@ -230,33 +266,32 @@ void key_set()
 		keyf_set(2, "[LEFT]",        "effWindowChange");
 		keyf_set(2, "^D",            "effWindowChange");
 		keyf_set(2, "[RIGHT]",       "effWindowChange");
-		keyf_set(2, "[tab]",         "effWindowChange");
+		keyf_set(2, "[TAB]",         "effWindowChange");
 		keyf_set(2, "w",             "effWindowNumChange");
-		keyf_set(2, "@",             "effReRead");
-		keyf_set(2, "r",             "effRename");
-		keyf_set(2, "k",             "effMkdir");
+		keyf_set(2, "^U",            "effReRead");
 		keyf_set(2, "^R",            "effPageUp");
 		keyf_set(2, "[PPAGE]",       "effPageUp");
 		keyf_set(2, "^C",            "effPageDown");
 		keyf_set(2, "[NPAGE]",       "effPageDown");
 		keyf_set(2, "^W",            "effRollUp");
+		keyf_set(2, "^[UP]",         "effRollUp");
 		keyf_set(2, "^Z",            "effRollDown");
-		keyf_set(2, "l",             "effChangeDir");
+		keyf_set(2, "^[DOWN]",       "effRollDown");
 		keyf_set(2, "/",             "effChangeDir /");
 		keyf_set(2, "\\",            "effChangeDir /");
 		keyf_set(2, "~",             "effChangeDir ~");
-		keyf_set(2, "q",             "effChangeDir ~");
+		keyf_set(2, "^H",            "effChangeDir ..");
 		keyf_set(2, "[BS]",          "effChangeDir ..");
 		keyf_set(2, "[CR]",          "effReturn");
-		keyf_set(2, "c",             "effFileCp");
-		keyf_set(2, "m",             "effFileMv");
-		keyf_set(2, "d",             "effFileRm");
 		keyf_set(2, "[SPACE]",       "effMarkChange");
-		keyf_set(2, "*",             "effMarkChangeAll");
-		keyf_set(2, "x",             "effExec");
-		keyf_set(2, "h",             "effExec");
-		keyf_set(2, "s",             "effSort");
-		keyf_set(2, "e",             "effMaskExt");
+		keyf_set(2, "f",             "effFileMenu");
+		keyf_set(2, "m",             "effMaskName");
+		keyf_set(2, "d",             "effDirMenu");
+		keyf_set(2, "s",             "effSortMenu");
+		keyf_set(2, "p",             "effChangeDir");
+		keyf_set(2, "a",             "effMarkChangeAll");
+		keyf_set(2, "*",             "effMaskClear");
+		keyf_set(2, "v",             "effRedraw");
 	}
 }
 
@@ -404,11 +439,11 @@ void end_mask_reg()
 	}
 }
 
-bool check_cmode_ext(const char *filename)
+int check_cmode_ext(const char *filename)
 {
-	bool flag = FALSE;
+	int flag = FALSE;
 	sitem_t *item;
-	char *name = strrchr(filename, '/');
+	const char *name = strrchr(filename, '/');
 	if(name != NULL) {
 		name++;
 		if((item = sysinfo.sitem[itemCext]) != NULL) {
@@ -435,7 +470,7 @@ bool check_cmode_ext(const char *filename)
 	return flag;
 }
 
-bool check_use_ext(const char *name, const char *path)
+int check_use_ext(const char *name, const char *path)
 {
 	char buff[LN_path + 1];
 
@@ -479,19 +514,57 @@ bool check_use_ext(const char *name, const char *path)
 void dir_init()
 {
 	char *p;
-
+#ifdef _WIN32
+	wchar_t current[LN_path + 1];
+	DWORD drive, bit;
+	char name[3];
+	int no;
+#endif
 	clear_string_item(itemDir);
+#ifdef _WIN32
+	GetCurrentDirectory(LN_path, current);
+	drive = GetLogicalDrives();
+	bit = 1;
+	for(no = 0 ; no < 26 ; no++) {
+		char path[LN_path + 1];
+		wchar_t wpath[LN_path + 1];
+		if(drive & bit) {
+			name[0] = no + 'A'; name[1] = ':'; name[2] = 0;
+			add_string_item(itemDir, name);
+			if(name[0] == toupper(current[0])) {
+				wcscpy(wpath, current);
+			} else {
+				wpath[0] = no + 'A'; wpath[1] = ':'; wpath[2] = 0;
+				SetCurrentDirectory(wpath);
+				GetCurrentDirectory(LN_path, wpath);
+			}
+			wchar_to_utf8(wpath, path, LN_path);
+			set_current_dir(no, path);
+		}
+		bit <<= 1;
+	}
+	SetCurrentDirectory(current);
+#else
 	add_string_item(itemDir, "~ <home dir>");
+#endif
 	if((p = getenv("N8_PATH")) != NULL) {
 		char str[MAXLINESTR + 1];
 		int length;
 
 		length = 0;
 		while(*p != '\0') {
+#ifdef _WIN32
+			if(*p == ';') {
+#else
 			if(*p == ':') {
+#endif
 				if(length > 0) {
 					str[length] = '\0';
+#ifdef _WIN32
+					change_dir_char(str);
+#endif
 					add_string_item(itemDir, str);
+					length = 0;
 				}
 			} else if(length < MAXLINESTR) {
 				str[length++] = *p;
@@ -500,6 +573,9 @@ void dir_init()
 		}
 		if(length > 0) {
 			str[length] = '\0';
+#ifdef _WIN32
+			change_dir_char(str);
+#endif
 			add_string_item(itemDir, str);
 		}
 	}
@@ -532,7 +608,7 @@ void sort_init()
 void sysinfo_optset()
 {
 	const char *p;
-	bool f;
+	int f;
 
 	p = hash_get(sysinfo.vp_def, "tabcode");
 	if(p == NULL) {
@@ -645,6 +721,13 @@ void sysinfo_optset()
 
 	set_ext_item(itemHide, hash_get(sysinfo.vp_def, "HideExt"));
 	set_ext_item(itemCext, hash_get(sysinfo.vp_def, "CExt"));
+#ifdef _WIN32
+	if(!get_regexp_enable()) {
+		sysinfo.searchregf = FALSE;
+		sysinfo.maskregf = FALSE;
+	}
+#endif
+
 }
 
 void opt_set(const char *s, const char *t)
@@ -676,28 +759,38 @@ void opt_default()
 	char *env;
 	char code[4] = { (char)0xe3, (char)0x83, (char)0xad, 0 };
 
-	hash_set(sysinfo.vp_def, "TabStop", "8");
-	hash_set(sysinfo.vp_def, "ctabstop", "4");
-	hash_set(sysinfo.vp_def, "extlength", "4");
-	hash_set(sysinfo.vp_def, "tabcode", ">");
-	hash_set(sysinfo.vp_def, "Japanese", "on");
+	hash_set(sysinfo.vp_def, "CrMark", "on");
 	hash_set(sysinfo.vp_def, "AutoIndent", "on");
-	hash_set(sysinfo.vp_def, "ansicolor", "on");
+	hash_set(sysinfo.vp_def, "Japanese", "on");
+	hash_set(sysinfo.vp_def, "TabStop", "8");
+	hash_set(sysinfo.vp_def, "NoCase", "on");
+	hash_set(sysinfo.vp_def, "AnsiColor", "on");
+	hash_set(sysinfo.vp_def, "NewFile", "on");
+	hash_set(sysinfo.vp_def, "Ambiguous", "1");
+	hash_set(sysinfo.vp_def, "AskSave", "on");
+	hash_set(sysinfo.vp_def, "AfterClose", "default");
+	hash_set(sysinfo.vp_def, "ExtLength", "4");
+	hash_set(sysinfo.vp_def, "CTabStop", "4");
+	hash_set(sysinfo.vp_def, "CExt", ".h .c .cpp");
+	hash_set(sysinfo.vp_def, "TabCode", ">");
 	if((env = getenv("LANG")) != NULL) {
 		hash_set(sysinfo.vp_def, "Locale", env);
 	} else {
 		hash_set(sysinfo.vp_def, "Locale", "ja_JP.UTF-8");
 	}
-	hash_set(sysinfo.vp_def, "nfd", "on");
-	hash_set(sysinfo.vp_def, "eof", "on");
-	hash_set(sysinfo.vp_def, "newfile", "on");
-	hash_set(sysinfo.vp_def, "zenspacechar", code);
-	hash_set(sysinfo.vp_def, "ambiguous", "2");
-	hash_set(sysinfo.vp_def, "framechar", "ascii");
+	hash_set(sysinfo.vp_def, "NFD", "on");
+	hash_set(sysinfo.vp_def, "EOF", "on");
+	hash_set(sysinfo.vp_def, "ZenSpaceChar", code);
+#ifdef _WIN32
+	hash_set(sysinfo.vp_def, "FrameChar", "frame");
+	hash_set(sysinfo.vp_def, "HideExt", ".obj .bak .exe .dll");
+#else
+	hash_set(sysinfo.vp_def, "FrameChar", "ascii");
+	hash_set(sysinfo.vp_def, "HideExt", ".o .bak");
+#endif
 	hash_set_int(sysinfo.vp_def, "FileHistoryCount", DEFAULT_FILE_HISTORY_COUNT);
 	hash_set_int(sysinfo.vp_def, "DirHistoryCount", DEFAULT_DIR_HISTORY_COUNT);
-	hash_set(sysinfo.vp_def, "sort", "filename");
-	hash_set(sysinfo.vp_def, "asksave", "on");
+	hash_set(sysinfo.vp_def, "Sort", "filename");
 
 	hash_set(sysinfo.vp_def, "col_block", "R");
 	hash_set(sysinfo.vp_def, "col_linenum", "4");
@@ -901,7 +994,7 @@ SHELL void op_menu_opt()
 SHELL void op_opt_kanji()
 {
 	++edbuf[CurrentFileNo].kc;
-	if(edbuf[CurrentFileNo].kc > KC_utf8bom) {
+	if(edbuf[CurrentFileNo].kc > KC_utf16be) {
 		edbuf[CurrentFileNo].kc = 0;
 	}
 	edbuf[CurrentFileNo].cf = TRUE;
@@ -945,7 +1038,7 @@ void config_read(char *path)
 	int mode;
 	char com_chr;
 	char q_chr;
-	bool ex_flag;
+	int ex_flag;
 	char reg_chr;
 	char zone_buf[MAXLINESTR + 1];
 
@@ -957,9 +1050,9 @@ void config_read(char *path)
 	int val_num;
 
 	if(strchr(path, '/') != NULL) {
-		 fp = fopen(path, "r");
-		 if(fp == NULL) {
-		 	return;
+		fp = fopen(path, "r");
+		if(fp == NULL) {
+			return;
 		}
 	} else {
 		char buf[MAXLINESTR + 1];
@@ -967,7 +1060,13 @@ void config_read(char *path)
 		sysinfo_path(buf, path);
 		fp = fopen(buf, "r");
 		if(fp == NULL) {
+#ifdef _WIN32
+			char dir[MAXLINESTR + 1];
+			get_exe_dir(dir, MAXLINESTR);
+			sprintf(buf, "%s/%s", dir, path);
+#else
 			sprintf(buf, SYSCONFDIR "/%s", path);
+#endif
 			fp = fopen(buf, "r");
 			if(fp == NULL) {
 				return;
