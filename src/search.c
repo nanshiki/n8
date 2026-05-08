@@ -48,7 +48,7 @@ SHELL void op_search_getword()
 	if(*s_get == '\0') {
 		lx = csrle.lx;
 	} else {
-		lx = csrle.lx + strlen(s_get);
+		lx = csrle.lx + (int)strlen(s_get);
 	}
 
 	lx = kanji_tknext(csrle.buf, lx, FALSE) - csrle.lx;
@@ -135,7 +135,7 @@ long search_prev(const char *s, int x, long y, regm_t *rmp)
 		return -1;
 	}
 	if(x < 0) {
-		x = strlen(ed->buffer);
+		x = (int)strlen(ed->buffer);
 	}
 
 	for( ; y > 0 ; --y) {
@@ -148,7 +148,7 @@ long search_prev(const char *s, int x, long y, regm_t *rmp)
 		if(ed == NULL || ed->buffer == NULL) { // buffer
 			break;
 		}
-		x = strlen(ed->buffer); // buffer
+		x = (int)strlen(ed->buffer); // buffer
 	}
 	return -1;
 }
@@ -224,7 +224,7 @@ void replace()
 	int chgNo;
 	int res;
 	char buf[MAXLINESTR + 1];
-	bool rf = FALSE;
+	int rf = FALSE;
 
 	int cx, sx, lx, cy;
 	long ly;
@@ -284,7 +284,6 @@ void replace()
 		cursor_move(x, y);
 
 		if(!rf) {
-			int n;
 			char buf[LN_dspbuf + 1];
 			int row = GetRow();
 			int col = GetCol() + NumWidth;
@@ -317,7 +316,7 @@ void replace()
 
 		se_delete(rm.rm_eo - x, TRUE);
 		se_insert(s_repl, FALSE);
-		x += strlen(s_repl);
+		x += (int)strlen(s_repl);
 
 		csr_leupdate();
 
