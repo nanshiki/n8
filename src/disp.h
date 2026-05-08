@@ -29,7 +29,7 @@ typedef struct
 	int sizex, sizey;
 	int drp_num;
 	dspreg_t *drp[MAX_dspreg];
-	bool ff;
+	int ff;
 } dspall_t;
 
 VAL dspall_t dspall;
