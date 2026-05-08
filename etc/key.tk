@@ -94,7 +94,7 @@
   ^V [INS]          : opt_set "OverWrite"   # 入力モードon/off
 
   [F01]             : menu_file             # ファイルメニュー
-  [F12]             : menu_opt              #
+  [F12] \[F01]      : menu_opt              #
   ^KI               : opt_tab               # タブの切替え
 
   [F04]             : file_split            # テキスト分割表示
