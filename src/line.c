@@ -23,23 +23,22 @@
 #include "sh.h"
 #include <ctype.h>
 
-void se_insert(const char *s, bool f)
+void se_insert(const char *s, int f)
 {
 	int lx;
-	int ch;
 	unsigned long c;
 
 	lx = csrle.lx;
 	while(*s != '\0') {
 		s = get_utf8_code(s, &c);
-		LeditInput(c, NONE);
+		LeditInput(c, EDIT_NONE);
 	}
 	if(f) {
 		csr_setlx(lx);
 	}
 }
 
-void se_delete(int n, bool f)
+void se_delete(int n, int f)
 {
 	int width;
 
@@ -47,14 +46,14 @@ void se_delete(int n, bool f)
 		if(f && (width = IsKanjiPosition() - 1) > 0) {
 			n -= width;
 		}
-		Ledit(DELETE);
+		Ledit(EDIT_DELETE);
 	}
 }
 
 void se_nazo()
 {
-	Ledit(NONE);
-	Ledit(BACKSPACE);
+	Ledit(EDIT_NONE);
+	Ledit(EDIT_BACKSPACE);
 }
 
 void line_catnext()
@@ -129,7 +128,7 @@ SHELL void op_del_sright()
 		return;
 	}
 	strcpy(buf, csrle.buf + csrle.lx);
-	se_delete(strlen(csrle.buf + csrle.lx), TRUE);
+	se_delete((int)strlen(csrle.buf + csrle.lx), TRUE);
 	undo_add(FALSE, buf);
 }
 
@@ -156,7 +155,7 @@ SHELL void op_del_sleft()
 SHELL void op_del_char()
 {
 	int width, pos;
-	char buf[2 + 1], *p;
+	char buf[4 + 1], *p;
 
 	se_nazo();
 
@@ -182,7 +181,7 @@ SHELL void op_del_bs()
 {
 	int width, pos;
 	long LineOffset;
-	char buf[2 + 1], *p;
+	char buf[4 + 1], *p;
 
 	LineOffset = GetLineOffset();
 	if(GetBufferOffset() == 0) {
@@ -205,9 +204,9 @@ SHELL void op_del_bs()
 	undo_add(TRUE, buf);
 }
 
-bool check_bracket(int len)
+int check_bracket(int len)
 {
-	bool comment = FALSE;
+	int comment = FALSE;
 	int n = 0;
 
 	while(n < len) {
@@ -232,7 +231,7 @@ bool check_bracket(int len)
 	return FALSE;
 }
 
-void split(bool f, bool autoindentf, bool cmode)
+void split(int f, int autoindentf, int cmode)
 {
 	EditLine *ed;
 	char buf_nl[MAXEDITLINE + 1];
@@ -359,7 +358,7 @@ void tagJmp()
 	char tagJmpNoBuff[MAXEDITLINE + 1];
 
 	strcpy(buf, csrle.buf);
-	length = strlen(buf);
+	length = (int)strlen(buf);
 
 	count = 0;
 	/*get filename*/
@@ -409,7 +408,7 @@ SHELL void op_jump_line()
 		n = atoi(keyf_getarg(0));
 	} else {
 		*buf = '\0';
-		if(GetS(LINE_NUMBER_MSG, buf, 16) == ESCAPE) {
+		if(GetS(LINE_NUMBER_MSG, buf, 16, -1) == ESCAPE) {
 		 	return;
 		}
 		n = atol(buf);
@@ -448,7 +447,7 @@ SHELL void op_jump_mark()
 	}
 
 	lm_mark(GetLineOffset(), n);
-	sprintf(buf, "markしました。 #%d", n);
+	sprintf(buf, MARK_MSG, n);
 	system_msg(buf);
 }
 
@@ -496,7 +495,7 @@ void udbuf_get(char *s)
 	}
 }
 
-void udbuf_set(bool df, const char *s)
+void udbuf_set(int df, const char *s)
 {
 	HistoryData *hi;
 	char buf[MAXEDITLINE + 1];
@@ -510,7 +509,7 @@ void udbuf_set(bool df, const char *s)
 	history_append_last(historyUndo, hi);
 }
 
-void undo_add(bool df, const char *s)
+void undo_add(int df, const char *s)
 {
 	udbuf_set(df, s);
 }
