@@ -1,6 +1,6 @@
 Summary: n8 editor
 Name: n8
-Version: 4.1.1
+Version: 4.1.2
 Release: 0
 License: GPLv2
 Packager: Kobayashi Takashi <takapyu@nanshiki.co.jp>
