@@ -37,7 +37,7 @@
 #define __ELE_G_VAL_H__
 
 
-	/* ¡ù hash */
+	/* hash */
 
 #define LN_key	32
 #define LN_val	256
@@ -62,7 +62,7 @@ int hash_get_int(hash_t *gvp, const char *ks);
 void hash_set(hash_t *gvp, const char *ks, const char *vs);
 void hash_set_int(hash_t *gvp, const char *ks, const int value);
 void hash_defset(hash_t *gvp, const char *ks, const char *vs);
-bool hash_istrue(hash_t *gvp, const char *ks);
+int hash_istrue(hash_t *gvp, const char *ks);
 void hash_report(hash_t *gvp);
 void hash_sort(hash_t *gvp);
 

@@ -37,12 +37,14 @@
 #include	<stdio.h>
 #include	<stdlib.h>
 #include	<string.h>
+#include	<time.h>
 #include	"generic.h"
 #include	"hash.h"
+#include	"misc.h"
 
 void strjncpy(char *s, const char *t, size_t ln);
 
-/* ☆hash */
+/* hash */
 hash_t *hash_init(hash_t *gvp, int m)
 {
 	if(gvp == NULL) {
@@ -127,7 +129,7 @@ void hash_defset(hash_t *gvp, const char *ks, const char *vs)
 	++gvp->num;
 }
 
-bool hash_istrue(hash_t *gvp, const char *ks)
+int hash_istrue(hash_t *gvp, const char *ks)
 {
 	const char *p;
 
