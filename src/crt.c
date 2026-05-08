@@ -138,7 +138,7 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 	char buf[MAXEDITLINE + 1];
 	char buf_dsp[MAXEDITLINE + 1], *p;
 	char buf_ac[MAXEDITLINE + 1], *ac;
-	bool cf, bf;
+	int cf, bf;
 	int ln, sx, n, m, len;
 	int x_st, x_ed;
 	int under = FALSE;
@@ -176,7 +176,7 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 			buf[strlen(buf) - 1] = '\0';
 		}
 
-		ln = le_regbuf(buf, p, ac);
+		ln = (int)le_regbuf(buf, p, ac);
 
 		sx = GetScroll();
 		n = kanji_poscandsp(sx, p);
@@ -226,10 +226,10 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 
 		if(x_st > 0) {
 			if(x_st > strlen(p)) {
-				x_st = strlen(p);
+				x_st = (int)strlen(p);
 			}
 			ln = utf8_disp_copy(buf, p, x_st);
-			len = strlen(buf);
+			len = (int)strlen(buf);
 			p += len;
 			x_ed -= ln;
 			n = ln;
@@ -247,7 +247,7 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 		term_color(sysinfo.c_block);
 		if(x_ed <= strlen(p)) {
 			ln = utf8_disp_copy(buf, p, x_ed);
-			len = strlen(buf);
+			len = (int)strlen(buf);
 			p += len;
 			ac += len;
 			n += ln;
@@ -380,7 +380,11 @@ struct {
 	{ "F", AC_bold },
 	{ "ile  ", 0 },
 	{ "D", AC_bold },
+#ifdef _WIN32
+	{ "rive  ", 0 },
+#else
 	{ "ir  ", 0 },
+#endif
 	{ "M", AC_bold },
 	{ "ask  ", 0 },
 	{ "P", AC_bold },
@@ -394,7 +398,7 @@ struct {
 	{ NULL, 0 }
 };
 
-static char kc_char[] = {'E', 'J', 'S', 'U', 'u'};
+static char kc_char[] = {'E', 'J', 'S', 'U', 'u', 'L', 'B'};
 static char rm_char[] = {'L', '+', 'C'};
 
 dspfmt_t *display_guide(int sizex)
@@ -440,7 +444,7 @@ dspfmt_t *display_guide(int sizex)
 		}
 	}
 	p = edbuf[CurrentFileNo].path;
-	length = strlen(p);
+	length = (int)strlen(p);
 	if(sizex - LN_guide < length) {
 		p += length - (sizex - LN_guide);
 	}
@@ -457,7 +461,7 @@ dspfmt_t *display_guide(int sizex)
 			} else {
 				get_utf8_code(&csrle.buf[GetBufferOffset()], &code);
 			}
-			sprintf(tmp, "[%8lX] %6ld ", code, csrse.bytes + GetLastNumber() - 1);
+			sprintf(tmp, "[%8lX] %6ld ", code, (long)(csrse.bytes + GetLastNumber() - 1));
 			dfp = dsp_fmtinit(tmp, dfp);
 			dfp->col = attr;
 		}
@@ -513,7 +517,7 @@ dspfmt_t *display_guide(int sizex)
 
 dspfmt_t *dspreg_guide(void *vp, int a, int sizex, int sizey)
 {
-	dspfmt_t *dfpb;
+	dspfmt_t *dfpb = NULL;
 	if(eff_check_open()) {
 		dspfmt_t *dfp;
 		int no;

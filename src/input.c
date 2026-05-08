@@ -32,9 +32,9 @@ void Ledit(int contrl_flag)
 	LeditInput(' ', contrl_flag);
 }
 
-bool check_comment()
+int check_comment()
 {
-	bool comment = FALSE;
+	int comment = FALSE;
 	int n = 0;
 	int len = (int)strlen(csrle.buf);
 
@@ -74,7 +74,7 @@ void InputAndCrt(unsigned long key)
 				key |= term_inkey();
 			}
 		}
-		LeditInput(key, NONE);
+		LeditInput(key, EDIT_NONE);
 		term_locate(0, GetRow());
 	} else {
 		if(edbuf[CurrentFileNo].cmode && key == '}' && !check_comment()) {
@@ -85,7 +85,7 @@ void InputAndCrt(unsigned long key)
 				}
 			}
 		}
-		LeditInput(key, NONE);
+		LeditInput(key, EDIT_NONE);
 	}
 	csr_movehook();
 }
@@ -95,7 +95,7 @@ void InputAndCrt(unsigned long key)
 
 int input_box_width()
 {
-	int width = GetColWidth() / 2;
+	int width = GetColWidth() / 2 - 1;
 	if(width > INPUT_BOX_WIDTH_MAX) {
 		width = INPUT_BOX_WIDTH_MAX;
 	} else if(width < INPUT_BOX_WIDTH_MIN) {
@@ -110,10 +110,10 @@ char *HisGets(char *dest, const char *message, int listID)
 	if(sysinfo.ambiguous != AM_FIX1 && (width & 1) == 0) {
 		width++;
 	}
-	return legets_gets(message, dest, width, MAXLINESTR, listID) == ESCAPE ? NULL : dest;
+	return legets_gets(message, dest, width, MAXLINESTR, listID, 0) == ESCAPE ? NULL : dest;
 }
 
-int GetS(const char *message, char *buffer, int width)
+int GetS(const char *message, char *buffer, int width, int py)
 {
 	if(width == -1) {
 		width = input_box_width();
@@ -121,5 +121,5 @@ int GetS(const char *message, char *buffer, int width)
 	if(sysinfo.ambiguous != AM_FIX1 && (width & 1) == 0) {
 		width++;
 	}
-	return legets_gets(message, buffer, width, MAXLINESTR, -1);
+	return legets_gets(message, buffer, width, MAXLINESTR, -1, py);
 }

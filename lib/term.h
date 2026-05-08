@@ -129,5 +129,6 @@ void term_redraw_line();
 void term_redraw_box(int sx, int sy, int width, int height);
 void term_set_ambiguous(int mode);
 int term_utf8_half_char(const char *p);
+int term_starty();
 
 #endif	/* __TERM_H_ */

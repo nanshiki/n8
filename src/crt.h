@@ -1,7 +1,7 @@
 typedef	struct
 {
-	int dline;	// 画面上のライン
-	long line;	// バッファの row
+	int dline;	// 逕ｻ髱｢荳翫�ｮ繝ｩ繧､繝ｳ
+	long line;	// 繝舌ャ繝輔ぃ縺ｮ row
 
 	block_t bm;
 } crt_draw_t;

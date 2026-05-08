@@ -40,11 +40,17 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <pwd.h>
 #include <unistd.h>
+#endif
 
 #if	HAVE_DIRENT_H
+#ifndef _WIN32
 #	include	<dirent.h>
+#endif
 #	define	NAMLEN(dirent)	strlen((dirent)->d_name)
 #else
 #	define	dirent direct
@@ -70,6 +76,7 @@
 
 
 #include "generic.h"
+#include "misc.h"
 
 
 void *mem_alloc(size_t n)
@@ -106,8 +113,6 @@ void *mem_alloca(size_t n)
 
 void mem_alloca_gc()
 {
-	int i;
-
 	while(n_alloca >= 0) {
 		free(p_alloca[--n_alloca]);
 	}
@@ -178,20 +183,30 @@ void cut_pf(const char *s, char *path, char *file)
 	}
 }
 
-void reg_pf(const char *cp, char *s, bool f)
+void reg_pf(const char *cp, char *s, int f)
 {
 	char path[LN_path + 1];
 	char fn[LN_path + 1];
 
 	cut_pf(s, path, fn);
 	reg_path(cp, path, f);
+	if(path[0] == '\0') {
+		size_t length;
+		getcwd(path, LN_path);
+		if((length = strlen(path)) > 0) {
+			if(path[length - 1] != '/' && length < LN_path) {
+				path[length] = '/'; path[length + 1] = '\0';
+			}
+		}
+	}
 	sprintf(s, "%s%s", path, fn);
 }
 
+#ifndef _WIN32
 void complete_tilde(char *s, const char *t)
 {
 	const char *p;
-	bool f;
+	int f;
 	int n;
 	char buf[LN_path + 1];
 
@@ -237,16 +252,23 @@ void complete_tilde(char *s, const char *t)
 		strcat(s, "/");
 	}
 }
+#endif
 
 #define MAX_pt 1024
-void reg_path(const char *cp, char *s, bool f)
+void reg_path(const char *cp, char *s, int f)
 {
-	char cbuf[LN_path + 1];
 	char path[LN_path + 1];
 	char *sp, *p, *pt[MAX_pt], *q;
 	int pn;
 	int i, j, n;
+#ifdef _WIN32
+	int flag;
 
+	if(*s == '\0') return;
+	flag = (*s == '/' && *(s + 1) == '/');
+	q = s;
+	if(*(q + 1) != ':' && !flag) {
+#else
 	if(*s != '~') {
 		q = s;
 	} else {
@@ -254,12 +276,13 @@ void reg_path(const char *cp, char *s, bool f)
 		q = path;
 	}
 	if(*q != '/') {
+#endif
+		char cbuf[LN_path + 1];
 		if(cp == NULL) {
 			getcwd(cbuf, LN_path);
 			cp = cbuf;
 		}
 		if(q == s) {
-			//sprintf(path, "%s/%s", cp, s);
 			strcpy(path, cp);
 			if(strlen(path) + strlen(s) + 1 < LN_path) {
 				strcat(path, "/");
@@ -298,11 +321,24 @@ void reg_path(const char *cp, char *s, bool f)
 	n = 0;
 	for(i = 0 ; i < pn ; ++i) {
 		if(*pt[i] != '\0') {
+#ifdef _WIN32
+			if(i == 0) {
+				if(flag) {
+					n += sprintf(s + n, "//%s", pt[i]);
+				} else {
+					n += sprintf(s + n, "%s", pt[i]);
+				}
+			} else {
+				n += sprintf(s + n, "/%s", pt[i]);
+			}
+#else
 			n += sprintf(s + n, "/%s", pt[i]);
+#endif
 		}
 		free(pt[i]);
 	}
 	strcpy(s + n, "/");
+#ifndef _WIN32
 	if(f) {
 		getcwd(path, LN_path);
 
@@ -313,9 +349,10 @@ void reg_path(const char *cp, char *s, bool f)
 		}
 		chdir(path);
 	}
+#endif
 }
 
-bool dir_isdir(const char *s)
+int dir_isdir(const char *s)
 {
 	struct stat st;
 	return !stat(s, &st) && st.st_mode & S_IFDIR;
@@ -323,23 +360,50 @@ bool dir_isdir(const char *s)
 
 #define N_dir 256
 
-char **dir_glob(const char *s, bool f_dotfile)
+char **dir_glob(const char *s, int f_dotfile)
 {
+	char **p = NULL;
+	int n = 0;
+#ifdef _WIN32
+	HANDLE h;
+	WIN32_FIND_DATA fd;
+	wchar_t wpath[LN_path];
+	char name[LN_path];
+	int unc_root = check_unc_root(s);
+
+	utf8_to_wchar(s, wpath, LN_path);
+	lstrcat(wpath, L"/*.*");
+	h = FindFirstFile(wpath, &fd);
+	if(h == INVALID_HANDLE_VALUE) {
+#else
 	DIR *p_dir;
 	struct dirent *p_de;
-	char **p;
-	int n;
 
 	p_dir = opendir(s);
 	if(p_dir == NULL) {
+#endif
 		 p = mem_alloc(sizeof(char **) * 2);
 		 p[0] = mem_strdup("..");
 		 p[1] = NULL;
 		 return p;
 	}
 
-	n = 0;
-	p = NULL;
+#ifdef _WIN32
+	do {
+		if(fd.cFileName[0] == L'.' && (!f_dotfile || fd.cFileName[1] == L'\0')) {
+			continue;
+		}
+		if(unc_root && fd.cFileName[0] == L'.' && fd.cFileName[1] == L'.' && fd.cFileName[2] == L'\0') {
+			continue;
+		}
+		if(n % N_dir == 0) {
+			p = (char **)mem_realloc(p, sizeof(char **) * (n + N_dir));
+		}
+		wchar_to_utf8(fd.cFileName, name, LN_path);
+		p[n++] = mem_strdup(name);
+	} while(FindNextFile(h, &fd));
+	FindClose(h);
+#else
 	for(;;) {
 		p_de = readdir(p_dir);
 		if(p_de == NULL) {
@@ -354,6 +418,7 @@ char **dir_glob(const char *s, bool f_dotfile)
 		p[n++] = mem_strdup(p_de->d_name);
 	}
 	closedir(p_dir);
+#endif
 	p[n] = NULL;
 	return p;
 }

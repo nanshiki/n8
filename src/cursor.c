@@ -176,6 +176,11 @@ void CursorMove()
 SHELL void op_cursor_up()
 {
 	csr_setdy(GetRow() - 1);
+#ifdef _WIN32
+	if(sysinfo.underlinef) {
+		term_redraw_line();
+	}
+#endif
 }
 
 SHELL void op_cursor_down()
@@ -192,7 +197,7 @@ SHELL void op_cursor_sleft()
 
 SHELL void op_cursor_sright()
 {
-	csr_setlx(strlen(csrle.buf));
+	csr_setlx((int)strlen(csrle.buf));
 }
 
 
@@ -295,6 +300,11 @@ SHELL void op_cursor_rup()
 		n = atoi(keyf_getarg(0));
 	}
 	csr_setly(GetLineOffset() - (n <= 0 ? 1 : n));
+#ifdef _WIN32
+	if(sysinfo.underlinef) {
+		term_redraw_line();
+	}
+#endif
 }
 
 SHELL void op_cursor_rdown()

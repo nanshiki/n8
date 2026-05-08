@@ -45,10 +45,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <sys/ioctl.h>
+#ifdef _WIN32
+ #include <windows.h>
+ #include <conio.h>
+ #include <io.h>
+ #include <fcntl.h>
+#else
+ #include <sys/ioctl.h>
 
-#ifdef HAVE_UNISTD_H
- #include <unistd.h>
+ #ifdef HAVE_UNISTD_H
+  #include <unistd.h>
+ #endif
 #endif
 
 #include <sys/types.h>
@@ -66,6 +73,7 @@
  #include <fcntl.h>
 #endif
 
+#ifndef _WIN32
 #ifdef HAVE_SELECT
  #ifdef HAVE_SYS_TIME_H
   #include <sys/time.h>
@@ -79,11 +87,13 @@
 #ifdef HAVE_TERMCAP_H
  #include <termcap.h>
 #endif
+#endif
 
 char PC = '\0';
 char *BC = NULL;
 char *UP = NULL;
 
+#ifndef _WIN32
 #ifdef HAVE_TERMIOS_H
  #include <termios.h>
  typedef struct termios term_ioctl_t;
@@ -100,6 +110,7 @@ char *UP = NULL;
  #endif
 #error	"SGTTY 等を定義して下さい。"
 #endif
+#endif
 
 #ifndef STDIN_FILENO
  #define STDIN_FILENO	0
@@ -110,6 +121,7 @@ char *UP = NULL;
 #endif
 
 #include "generic.h"
+#include "misc.h"
 #include "term.h"
 
 #define TM_none 		0x00
@@ -137,7 +149,9 @@ static unsigned char ungetbuf[16];
 static int ungetnum = 0;
 #endif
 
+#ifndef _WIN32
 extern char *tparm(const char *str, ...);
+#endif
 
 typedef struct
 {
@@ -146,8 +160,16 @@ typedef struct
 	/* control TTY */
 	char *name;
 	FILE *fp_tty;
+#ifdef _WIN32
+	HANDLE handle_in;
+	HANDLE handle_out;
+	UINT cp_in;
+	UINT cp_out;
+	DWORD mode_in;
+	DWORD mode_out;
+#else
 	term_ioctl_t tty;
-
+#endif
 	/* control screen */
 	char *t_init;
 	char *t_keypad;
@@ -172,8 +194,8 @@ typedef struct
 
 	char *t_vbell;
 
-
 	int sizex, sizey;
+	int starty;
 
 	int md_cursor, md_cursor0;
 	int x, y;		/* cursor location */
@@ -185,7 +207,7 @@ typedef struct
 	color_t **attr, **attr0;
 
 	int *tq;
-	bool f_cls;
+	int f_cls;
 	int ambiguous;
 } term_t;
 
@@ -196,11 +218,6 @@ static term_t term;
 #define CS_hide		2
 
 #define SCR_ignore	(unsigned long)-1
-
-FILE *tty_fp()
-{
-	return term.fp_tty;
-}
 
 static void term_flush()
 {
@@ -219,6 +236,7 @@ int term_sizey()
 
 void term_getwsize()
 {
+#ifndef _WIN32
 	int x, y;
 
 	x = y = -1;
@@ -247,10 +265,14 @@ void term_getwsize()
 		term.sizex = x;
 		term.sizey = y;
 	}
+#endif
 }
 
 char *term_getent(const char *s_id, const char *s_def)
 {
+#ifdef _WIN32
+	return NULL;
+#else
 	char buf[TERMCAPSIZE + 1], *p;
 	const char *cp;
 
@@ -260,6 +282,7 @@ char *term_getent(const char *s_id, const char *s_def)
 		cp = s_def;
 	}
 	return mem_strdup(cp);
+#endif
 }
 
 #if 0
@@ -303,6 +326,16 @@ void term_queue_clear()
 	for(i = 0 ; i < term.sizey ; ++i) {
 		term.tq[i] = 0;
 	}
+}
+
+void term_cursor_off()
+{
+	term_tputs("\033[?25l");
+}
+
+void term_cursor_on()
+{
+	term_tputs("\033[?25h");
 }
 
 void term_scroll(int n)
@@ -355,7 +388,12 @@ static void term_scr_init()
 void term_reinit()
 {
 	int sizex, sizey;
-
+#ifdef _WIN32
+	CONSOLE_SCREEN_BUFFER_INFO info;
+	GetConsoleScreenBufferInfo(term.handle_out, &info);
+	sizex = info.srWindow.Bottom - info.srWindow.Top + 1;
+	sizey = info.srWindow.Right - info.srWindow.Left + 1;
+#else
 	if(tgetent(term_buf, term.name) <= 0) {
 		sizey = 24;
 		sizex = 79;
@@ -366,6 +404,7 @@ void term_reinit()
 			sizex--;
 		}
 	}
+#endif
 	if(term.sizex != sizex || term.sizey != sizey) {
 		int i;
 
@@ -427,21 +466,38 @@ static int term_getmode()
 	return term.mode;
 }
 
+#ifdef _WIN32
+#endif
+
 void term_stop()	/* atexitされるので基本的には明示的に呼ぶ必要はない */
 {
+#ifndef _WIN32
 	if(exit_failed) {
 		return;
 	}
 	exit_failed = TRUE;
 
 	term_setattr(&term.tty);
+#endif
 	term_setmode(TM_none);
 
 	term.fp_tty = stdout;
+#ifdef _WIN32
+	term_tputs("\033[0m");
+	SetConsoleCP(term.cp_in);
+	SetConsoleOutputCP(term.cp_out);
+	SetConsoleMode(term.handle_in, term.mode_in);
+	SetConsoleMode(term.handle_out, term.mode_out);
+#endif
 }
 
 void term_start()
 {
+#ifdef _WIN32
+	term_scr_init();
+	term_setmode(TM_init| TM_tinit| TM_keypad| TM_ansicolor);
+#else
+	int ch, flag;
 	term_ioctl_t tty;
 
 	memcpy(&tty, &term.tty, sizeof(term_ioctl_t));
@@ -453,14 +509,80 @@ void term_start()
 	tty.c_cc[VMIN] = 1;
 	term_setattr(&tty);
 
+	write(1, "\033[6n", 4);
+	term.starty = 0;
+	flag = 0;
+	while(1) {
+		ch = term_getch();
+		if(ch == EOF || ch == 'R') break;
+		if(ch == '[') {
+			flag = 1;
+		} else if(flag == 1) {
+			if(isdigit(ch)) {
+				term.starty *= 10;
+				term.starty |= ch - '0';
+			} else {
+				flag = 2;
+			}
+		}
+	}
+
 	term_setmode(TM_init| TM_tinit| TM_keypad| TM_ansicolor);
 
 	exit_failed = FALSE;
 	atexit(term_stop);
+#endif
+}
+
+int term_starty()
+{
+	return term.starty;
 }
 
 void term_init()
 {
+#ifdef _WIN32
+	CONSOLE_SCREEN_BUFFER_INFO info;
+
+	term.cp_in = GetConsoleCP();
+	SetConsoleCP(CP_UTF8);
+	term.cp_out = GetConsoleOutputCP();
+	SetConsoleOutputCP(CP_UTF8);
+
+	term.handle_in = GetStdHandle(STD_INPUT_HANDLE);
+	GetConsoleMode(term.handle_in, &term.mode_in);
+	SetConsoleMode(term.handle_in, ENABLE_WINDOW_INPUT & ~ENABLE_QUICK_EDIT_MODE);
+	term.handle_out = GetStdHandle(STD_OUTPUT_HANDLE);
+	GetConsoleMode(term.handle_out, &term.mode_out);
+	SetConsoleMode(term.handle_out, term.mode_out | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+
+	term.fp_tty = stdout;
+
+	GetConsoleScreenBufferInfo(term.handle_out, &info);
+	term.sizex = info.srWindow.Right - info.srWindow.Left + 1;
+	term.sizey = info.srWindow.Bottom - info.srWindow.Top + 1;
+	term.starty = info.dwCursorPosition.Y - info.srWindow.Top;
+
+	term.t_init         = "";
+	term.t_end          = "";
+	term.t_keypad       = "\033[?1h\033=";
+	term.t_nokeypad     = "\033[?1l\033>";
+	term.t_normalcursor = "";
+	term.t_hidecursor   = "";
+	term.t_vbell        = "\007";
+	term.t_clear        = "\033[;H\033[2J";
+	term.t_normal       = "\033[m";
+	term.t_bold         = "\033[1m";
+	term.t_reverse      = "\033[7m";
+	term.t_underline    = "\033[4m";
+	term.end_underline  = "\033[m";
+	term.l_clear        = "\033[K";
+	term.l_insert       = "\033[L";
+	term.l_delete       = "\033[M";
+	term.ln_insert      = "\033[%dL";
+	term.ln_delete      = "\033[%dM";
+	term.cn_locate      = "\033[%i%d;%dH";
+#else
 	term.fp_tty = fopen(TTYNAME, "w+");
 	if(term.fp_tty == NULL) {
 		term.fp_tty = stdout;
@@ -525,10 +647,12 @@ void term_init()
 		term.ln_delete      = term_getent("DL", "");
 		term.cn_locate      = term_getent("cm", "\033[%i%d;%dH");
 	}
+#endif
 }
 
 void term_report()
 {
+#ifndef _WIN32
 	report_puts("端末情報:\n");
 	report_printf("  x = %d, y = %d\n", term.sizex, term.sizey);
 
@@ -553,25 +677,134 @@ void term_report()
 	report_printf("  term.ln_insert = %s\n", term.ln_insert);
 	report_printf("  term.ln_delete = %s\n", term.ln_delete);
 	report_printf("  term.cn_locate = %s\n", term.cn_locate);
+#endif
 }
 
 void term_kflush()
 {
+#ifndef _WIN32
 	tcflush(fileno(term.fp_tty), TCIFLUSH);
+#endif
 }
 
 static int term_dputc(int c)
 {
+#ifndef _WIN32
 	return fputc(c, term.fp_tty);
+#endif
 }
 
 static void term_tputs(const char *s)
 {
+#ifdef _WIN32
+	fputs(s, stdout);
+#else
 	tputs(s, term.sizey, term_dputc);
+#endif
 }
+
+#ifdef _WIN32
+#define	KEYCODE_LENGTH	128
+int keycode_count;
+static int keycode[KEYCODE_LENGTH];
+wchar_t surrogate[3];
+struct {
+	int virtual;
+	int code;
+} virtual_key[] = {
+	{ 0x70, 0xffbe },
+	{ 0x71, 0xffbf },
+	{ 0x72, 0xffc0 },
+	{ 0x73, 0xffc1 },
+	{ 0x74, 0xffc2 },
+	{ 0x75, 0xffc3 },
+	{ 0x76, 0xffc4 },
+	{ 0x77, 0xffc5 },
+	{ 0x78, 0xffc6 },
+	{ 0x79, 0xffc7 },
+	{ 0x7b, 0xffc9 },
+	{ 0x24, 0xff50 },
+	{ 0x23, 0xff57 },
+	{ 0x2d, 0xff63 },
+	{ 0x2e, 0xffff },
+	{ 0x21, 0xff55 },
+	{ 0x22, 0xff56 },
+	{ 0x26, 0xff52 },
+	{ 0x28, 0xff54 },
+	{ 0x25, 0xff51 },
+	{ 0x27, 0xff53 },
+	{ 0, 0 }
+};
+#endif
 
 int term_getch()
 {
+#ifdef _WIN32
+	int ch = EOF;
+	INPUT_RECORD in[KEYCODE_LENGTH];
+	DWORD count;
+
+	if(keycode_count == 0) {
+		if(ReadConsoleInput(term.handle_in, in, KEYCODE_LENGTH, &count)) {
+			DWORD no;
+			for(no = 0 ; no < count ; no++) {
+				if(in[no].EventType == KEY_EVENT) {
+					if(in[no].Event.KeyEvent.bKeyDown) {
+						if(in[no].Event.KeyEvent.uChar.UnicodeChar >= 0x100) {
+							unsigned long u8 = 0;
+							if(surrogate[0] != 0) {
+								surrogate[1] = in[no].Event.KeyEvent.uChar.UnicodeChar;
+								surrogate[2] = 0;
+								wchar_to_utf8(surrogate, (char *)&u8, sizeof(unsigned long));
+								surrogate[0] = 0;
+							} else {
+								if(in[no].Event.KeyEvent.uChar.UnicodeChar >= 0xd800 && in[no].Event.KeyEvent.uChar.UnicodeChar <= 0xdbff) {
+									surrogate[0] = in[no].Event.KeyEvent.uChar.UnicodeChar;
+								} else {
+									wchar_to_utf8(&in[no].Event.KeyEvent.uChar.UnicodeChar, (char *)&u8, sizeof(unsigned long));
+								}
+							}
+							if(u8 != 0 && keycode_count < KEYCODE_LENGTH - 4) {
+								while(u8 != 0) {
+									keycode[keycode_count++] = (unsigned char)(u8 & 0xff);
+									u8 >>= 8;
+								}
+							}
+						} else if(in[no].Event.KeyEvent.uChar.UnicodeChar != 0) {
+							if(keycode_count < KEYCODE_LENGTH) {
+								keycode[keycode_count++] = in[no].Event.KeyEvent.uChar.UnicodeChar;
+							}
+						} else {
+							int v;
+							for(v = 0 ; virtual_key[v].virtual != 0 ; v++) {
+								if(in[no].Event.KeyEvent.wVirtualKeyCode == virtual_key[v].virtual) {
+									if(keycode_count < KEYCODE_LENGTH) {
+										keycode[keycode_count] = virtual_key[v].code;
+										if(in[no].Event.KeyEvent.dwControlKeyState & SHIFT_PRESSED) {
+											keycode[keycode_count] |= 0x10000;
+										} else if(in[no].Event.KeyEvent.dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) {
+											keycode[keycode_count] |= 0x20000;
+										} else if(in[no].Event.KeyEvent.dwControlKeyState & (LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) {
+											keycode[keycode_count] |= 0x40000;
+										}
+										keycode_count++;
+									}
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if(keycode_count > 0) {
+		ch = keycode[0];
+		CopyMemory(keycode, &keycode[1], sizeof(keycode) - sizeof(int));
+		keycode_count--;
+	}
+	return ch;
+#else
 	unsigned char ch;
 	int i;
 
@@ -582,10 +815,14 @@ int term_getch()
 		return(EOF);
 	}
 	return((int)ch);
+#endif
 }
 
 int term_kbhit(unsigned long usec)
 {
+#ifdef _WIN32
+	return _kbhit() || (keycode_count > 0);
+#else
 #ifdef HAVE_SELECT
 	fd_set readfds;
 	struct timeval timeout;
@@ -609,6 +846,7 @@ int term_kbhit(unsigned long usec)
  #else
 	return 1;
  #endif
+#endif
 #endif
 }
 
@@ -681,6 +919,9 @@ int term_regetch()
 
 static void term_locate_flush()
 {
+#ifdef _WIN32
+	printf("\033[%d;%dH", term.y + 1, term.x + 1);
+#else
 	char *p, *q, buf[LN_dispbuf + 1];
 	int n;
 
@@ -718,6 +959,7 @@ failed:
 		*q = '\0';
 		term_tputs(buf);
 	}
+#endif
 	term.x0 = term.x;
 	term.y0 = term.y;
 }
@@ -783,6 +1025,10 @@ void term_redraw_line()
 	}
 }
 
+#ifdef _WIN32
+#define	wchar_t unsigned long
+#endif
+
 int term_utf8_half_code(unsigned long c)
 {
 	char type = 0;
@@ -792,11 +1038,11 @@ int term_utf8_half_code(unsigned long c)
 	if(c < 0x100) {
 		return TRUE;
 	} else if(c < 0x10000) {
-		code = ((c & 0x1f00) >> 2) | (c & 0x3f);
+		code = (wchar_t)((c & 0x1f00) >> 2) | (c & 0x3f);
 	} else if(c < 0x1000000) {
-		code = ((c & 0xf0000) >> 4) | ((c & 0x3f00) >> 2) | (c & 0x3f);
+		code = (wchar_t)((c & 0xf0000) >> 4) | ((c & 0x3f00) >> 2) | (c & 0x3f);
 	} else {
-		code = ((c & 0x7000000) >> 6) | ((c & 0x3f0000) >> 4) | ((c & 0x3f00) >> 2) | (c & 0x3f);
+		code = (wchar_t)(((c & 0x7000000) >> 6) | ((c & 0x3f0000) >> 4) | ((c & 0x3f00) >> 2) | (c & 0x3f));
 	}
 	if(code < 0x0080) {
 		return TRUE;
@@ -1096,10 +1342,14 @@ void term_color_disable()
 
 static void term_scroll_dn(int n)
 {
-	char buf[LN_dispbuf + 1];
-
 	if(*term.ln_insert != '\0') {
+#ifdef _WIN32
+		char buf[20 + 1];
+		sprintf(buf, term.ln_insert, n);
+		term_tputs(buf);
+#else
 		term_tputs(tparm(term.ln_insert, n));
+#endif
 	} else {
 		while(n-- > 0) {
 			term_tputs(term.l_insert);
@@ -1109,10 +1359,14 @@ static void term_scroll_dn(int n)
 
 static void term_scroll_up(int n)
 {
-	char buf[LN_dispbuf + 1];
-
 	if(*term.ln_delete != '\0') {
+#ifdef _WIN32
+		char buf[20 + 1];
+		sprintf(buf, term.ln_delete, n);
+		term_tputs(buf);
+#else
 		term_tputs(tparm(term.ln_delete, n));
+#endif
 	} else {
 		while(n-- > 0) {
 			term_tputs(term.l_delete);
@@ -1127,13 +1381,13 @@ void term_set_ambiguous(int mode)
 
 static void term_all_flush()
 {
-	int i, j;
-	int n, x;
-	bool f, cf;
+	int i, n;
+	int f, cf;
 
 	unsigned long *p, *p0;
 	color_t *a, *a0;
 
+	term_cursor_off();
 	if(term.f_cls) {
 		term_color_normal();
 		term_color_flush();
@@ -1284,5 +1538,6 @@ static void term_all_flush()
 		}
 	}
 	term_flush();
+	term_cursor_on();
 }
 

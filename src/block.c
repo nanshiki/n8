@@ -19,6 +19,10 @@
 #include "keyf.h"
 #include "file.h"
 #include "sh.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
+#include "../lib/misc.h"
 
 #define	blck edbuf[CurrentFileNo].block
 
@@ -44,7 +48,7 @@ void block_set(block_t *bp)
 	}
 }
 
-bool block_range(long n, block_t *bp, int *x_st, int *x_ed)
+int block_range(long n, block_t *bp, int *x_st, int *x_ed)
 {
 	if(bp->blkm == BLKM_none || bp->y_st > n || bp->y_ed < n) {
 		return FALSE;
@@ -63,7 +67,7 @@ bool block_range(long n, block_t *bp, int *x_st, int *x_ed)
 
 		if(bp->y_st == n) {
 			*x_st = bp->x_st;
-			*x_ed = strlen(GetList(n)->buffer) + 1;
+			*x_ed =(int)(strlen(GetList(n)->buffer) + 1);
 			return TRUE;
 		}
 		if(bp->y_ed == n) {
@@ -73,7 +77,7 @@ bool block_range(long n, block_t *bp, int *x_st, int *x_ed)
 		}
 	}
 	*x_st = 0;
-	*x_ed = strlen(GetList(n)->buffer) + 1;
+	*x_ed = (int)(strlen(GetList(n)->buffer) + 1);
 	return TRUE;
 }
 
@@ -138,7 +142,7 @@ int block_size(block_t *bp)
 	return ln;
 }
 
-bool bstack_copy()
+int bstack_copy()
 {
 	EditLine *ed;
 	char *p;
@@ -171,6 +175,28 @@ bool bstack_copy()
 		ed = ed->next;
 		++n;
 	}
+#ifdef _WIN32
+	if(OpenClipboard(NULL)) {
+		if(EmptyClipboard()) {
+			wchar_t *buff;
+			size_t length = strlen(p) * 4;
+			if((buff = (wchar_t *)malloc(length + 2)) != NULL) {
+				HGLOBAL hg;
+				size_t size = utf8_to_wchar(p, buff, (int)length) * sizeof(wchar_t);
+				if(hg = GlobalAlloc(GMEM_MOVEABLE, size)) {
+					void *mem;
+					if((mem = GlobalLock(hg)) != NULL) {
+						memcpy(mem, buff, size);
+						GlobalUnlock(hg);
+						SetClipboardData(CF_UNICODETEXT, hg);
+					}
+				}
+				free(buff);
+			}
+		}
+		CloseClipboard();
+	}
+#endif
 	return TRUE;
 }
 
@@ -230,7 +256,7 @@ SHELL void op_block_start()
 	}
 }
 
-bool BlockCommand()		/* ブロックコマンドの準備用 */
+int BlockCommand()		/* ブロックコマンドの準備用 */
 {
 	csr_leupdate();
 
@@ -247,7 +273,7 @@ bool BlockCommand()		/* ブロックコマンドの準備用 */
 			 bkm.blkm = BLKM_x;
 			 --bkm.y_ed;
 			 bkm.x_st = 0;
-			 bkm.x_ed = strlen(GetList(GetLineOffset())->buffer);
+			 bkm.x_ed = (int)(strlen(GetList(GetLineOffset())->buffer));
 		}
 	}
 	return block_size(&bkm) > 0;
@@ -283,7 +309,7 @@ const char *str_paste(char *s, const char *p)
 
 void bstack_paste()
 {
-	char buf[MAXEDITLINE + 1], buf_a[MAXEDITLINE + 1], *p;
+	char buf[MAXEDITLINE + 1], buf_a[MAXEDITLINE + 1];
 	const char *q;
 	EditLine *ed, *edn;
 	int x, y;

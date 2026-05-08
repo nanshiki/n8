@@ -23,9 +23,15 @@
 #include "input.h"
 #include "setopt.h"
 #include "sh.h"
-#include "../lib/misc.h"
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#include <direct.h>
+#else
 #include <sys/file.h>
+#endif
+#include "../lib/misc.h"
 
 enum {
 	menuFileOpen,
@@ -40,7 +46,9 @@ enum {
 	menuFileInsert,
 	menuFileAllClose,
 	menuFileMiscExec,
+#ifndef _WIN32
 	menuFileInsertOutput,
+#endif
 	menuFileQuit,
 
 	menuFileMax
@@ -60,7 +68,7 @@ static int last_back_file_no;
 static int duplicate_file_no;
 static char temp_path[LN_path + 1];
 
-void FileStartInit(bool f)
+void FileStartInit(int f)
 {
 	edbuf[CurrentFileNo].cf = FALSE;
 	edbuf[CurrentFileNo].readonly = FALSE;
@@ -108,22 +116,40 @@ void sysinfo_path(char *s, const char *t)
 #define LOCK_UN 8
 #endif
 
-bool edbuf_lock(bool func(FILE *, const char*), const char *fn)
+#ifdef _WIN32
+#include <windows.h>
+#endif
+int edbuf_lock(int func(FILE *, const char*), const char *fn)
 {
 	char buf[LN_path + 1];
 	FILE *fp;
+	int f;
+#ifndef _WIN32
 	int i, a;
-	bool f;
-
+#else
+	HANDLE mutex;
+	mutex = CreateMutex(NULL, FALSE, L"n8$$lock");
+	if(GetLastError() == ERROR_ALREADY_EXISTS) {
+		ReleaseMutex(mutex);
+		CloseHandle(mutex);
+		inkey_wait(LOCK_FILE_LOCKED_MSG);
+		return TRUE;
+	}
+#endif
 	sysinfo_path(buf, N8_LOCK_FILE);
 	fp = fopen(buf, "r+");
 	if(fp == NULL) {
 		fp = fopen(buf, "w+");
 		if(fp == NULL) {
+#ifdef _WIN32
+			ReleaseMutex(mutex);
+			CloseHandle(mutex);
+#endif
 			inkey_wait(UNABLE_OPEN_LOCK_FILE_MSG);
 			return TRUE;
 		}
 	}
+#ifndef _WIN32
 	for(i = 0 ; ; ++i) {
 		a = flock(fileno(fp), LOCK_EX | LOCK_NB);
 		if(a == 0) {
@@ -135,13 +161,20 @@ bool edbuf_lock(bool func(FILE *, const char*), const char *fn)
 			return TRUE;
 		}
 	}
+#endif
 	f = func(fp, fn);
+#ifndef _WIN32
 	flock(fileno(fp), LOCK_UN);
+#endif
 	fclose(fp);
+#ifdef _WIN32
+	ReleaseMutex(mutex);
+	CloseHandle(mutex);
+#endif
 	return f;
 }
 
-bool edbuf_rm_func(FILE *fp, const char *fn)
+int edbuf_rm_func(FILE *fp, const char *fn)
 {
 	char buf[LN_path + 1];
 	char *p ,*q;
@@ -156,7 +189,7 @@ bool edbuf_rm_func(FILE *fp, const char *fn)
 		if(strcmp(fn, buf) == 0) {
 			continue;
 		}
-		n += strlen(buf) + 1;
+		n += (long)(strlen(buf) + 1);
 		q = (char *)mem_alloc(n + 1);
 		if(p == NULL) {
 			sprintf(q, "%s\n", buf);
@@ -186,7 +219,7 @@ void edbuf_rm(int n)
 	*edbuf[n].path = '\0';
 }
 
-bool edbuf_add_func(FILE *fp, const char *fn)
+int edbuf_add_func(FILE *fp, const char *fn)
 {
 	char buf[LN_path + 1];
 
@@ -202,7 +235,7 @@ bool edbuf_add_func(FILE *fp, const char *fn)
 	return TRUE;
 }
 
-bool edbuf_add(const char *fn, bool flag)
+int edbuf_add(const char *fn, int flag)
 {
 	int i;
 
@@ -227,7 +260,7 @@ bool edbuf_add(const char *fn, bool flag)
 	return TRUE;
 }
 
-bool edbuf_mv(int n, const char *fn)
+int edbuf_mv(int n, const char *fn)
 {
 	edbuf_lock(edbuf_rm_func, edbuf[n].path);
 	if(!edbuf_lock(edbuf_add_func, fn)) {
@@ -241,10 +274,10 @@ bool edbuf_mv(int n, const char *fn)
 	return TRUE;
 }
 
-bool CheckFileAccess(const char *fn)
+int CheckFileAccess(const char *fn)
 {
 	struct stat sbuf;
-	bool f;
+	int f;
 
 	if(fn != NULL && strcmp(fn, edbuf[CurrentFileNo].path) != 0) {
 		return FALSE;
@@ -258,7 +291,7 @@ bool CheckFileAccess(const char *fn)
 	return FALSE;
 }
 
-bool file_change(int n)
+int file_change(int n)
 {
 	if(n < 0 || n >= MAX_edfiles || *edbuf[n].path == '\0') {
 		return FALSE;
@@ -318,8 +351,6 @@ int FindOutNextFile(int no)
 
 int GetBackFile(int n)
 {
-	int i;
-
 	if(BackFileNo != n && *edbuf[BackFileNo].path != '\0') {
 		return BackFileNo;
 	}
@@ -328,7 +359,7 @@ int GetBackFile(int n)
 
 void filesave_proc(const char *s, FILE *fp)
 {
-	bool f;
+	int f;
 	char buf[MAXEDITLINE + 1];
 	char f_buf[MAXEDITLINE * 4 + 1];
 	char *rm_table[] = { "\n", "\r\n", "\r" };
@@ -343,13 +374,40 @@ void filesave_proc(const char *s, FILE *fp)
 		buf[strlen(s) - 1] = '\0';
 		f = TRUE;
 	}
-	fputs(kanji_from_utf8(f_buf, buf, edbuf[CurrentFileNo].kc), fp);
+	if(edbuf[CurrentFileNo].kc >= KC_utf16le) {
+		int length;
+		if((length = utf16_from_utf8(f_buf, buf, edbuf[CurrentFileNo].kc)) > 0) {
+			fwrite(f_buf, length, 1, fp);
+		}
+	} else {
+		fputs(kanji_from_utf8(f_buf, buf, edbuf[CurrentFileNo].kc), fp);
+	}
 	if(f) {
-		fputs(rm_table[edbuf[CurrentFileNo].rm], fp);
+		if(edbuf[CurrentFileNo].kc == KC_utf16le) {
+			if(edbuf[CurrentFileNo].rm == RM_crlf || edbuf[CurrentFileNo].rm == RM_cr) {
+				fputc(0x0d, fp);
+				fputc(0x00, fp);
+			}
+			if(edbuf[CurrentFileNo].rm == RM_crlf || edbuf[CurrentFileNo].rm == RM_lf) {
+				fputc(0x0a, fp);
+				fputc(0x00, fp);
+			}
+		} else if(edbuf[CurrentFileNo].kc == KC_utf16be) {
+			if(edbuf[CurrentFileNo].rm == RM_crlf || edbuf[CurrentFileNo].rm == RM_cr) {
+				fputc(0x00, fp);
+				fputc(0x0d, fp);
+			}
+			if(edbuf[CurrentFileNo].rm == RM_crlf || edbuf[CurrentFileNo].rm == RM_lf) {
+				fputc(0x00, fp);
+				fputc(0x0a, fp);
+			}
+		} else {
+			fputs(rm_table[edbuf[CurrentFileNo].rm], fp);
+		}
 	}
 }
 
-int filesave(char *filename, bool f)
+int filesave(char *filename, int f)
 {
 	FILE *fp;
 	int res;
@@ -388,7 +446,11 @@ int filesave(char *filename, bool f)
 		unlink(backpath);
 		rename(filename, backpath);
 	}
+#ifdef _WIN32
+	fp = fopen(filename, "wb");
+#else
 	fp = fopen(filename, "w");
+#endif
 	if(fp == NULL) {
 		CrtDrawAll();
 		inkey_wait(DONT_WRITE_FILE_MSG);
@@ -398,6 +460,12 @@ int filesave(char *filename, bool f)
 	system_msg(buffer);
 	if(edbuf[CurrentFileNo].kc == KC_utf8bom) {
 		write_utf8_bom(fp);
+	} else if(edbuf[CurrentFileNo].kc == KC_utf16le) {
+		fputc(0xff, fp);
+		fputc(0xfe, fp);
+	} else if(edbuf[CurrentFileNo].kc == KC_utf16be) {
+		fputc(0xfe, fp);
+		fputc(0xff, fp);
 	}
 	lists_proc((void (*)(const char *, void *))filesave_proc, fp, GetTopNumber(), GetLastNumber());
 	fclose(fp);
@@ -409,11 +477,17 @@ int filesave(char *filename, bool f)
 
 void *file_open_proc(char *s, kinfo_t *kip)
 {
-	char buf[MAXEDITLINE + 1];
-	bool f;
+	int f;
 
-	f = file_gets(buf, MAXEDITLINE, kip->fp, &kip->n_cr, &kip->n_lf);
-	kanji_to_utf8(s, buf, kip->kc);
+	if(kip->kc >= KC_utf16le) {
+		unsigned short buf[MAXEDITLINE + 1];
+		f = file_gets_utf16(buf, MAXEDITLINE, kip->fp, &kip->n_cr, &kip->n_lf, kip->kc);
+		utf16_to_utf8(s, buf, kip->kc);
+	} else {
+		char buf[MAXEDITLINE + 1];
+		f = file_gets(buf, MAXEDITLINE, kip->fp, &kip->n_cr, &kip->n_lf);
+		kanji_to_utf8(s, buf, kip->kc);
+	}
 	return f != -1 ? kip : NULL;
 }
 
@@ -430,13 +504,17 @@ int fileopen(char *filename, int kc, int line, int mode)
 	struct stat sbuf;
 	kinfo_t ki;
 	int n, nx, a;
-	bool sf;
+	int sf;
 
 	sf = stat(filename, &sbuf);
 	if(!sf && (sbuf.st_mode & S_IFMT) != S_IFREG) {
 		return openNG;	/* レギュラーファイルではない。*/
 	}
+#ifdef _WIN32
+	fp = fopen(filename, "rb");
+#else
 	fp = fopen(filename, "r");
+#endif
 	if(fp == NULL) {
 		if(access(filename, F_OK) == -1) { /* 新規ファイル */
 			if(mode != openModeNew && sysinfo.newfilef) {
@@ -449,6 +527,11 @@ int fileopen(char *filename, int kc, int line, int mode)
 			lists_add((void *(*)(char *, void *))file_new_proc, "");
 			edbuf[CurrentFileNo].ct = -1;
 			edbuf[CurrentFileNo].kc = KC_utf8;
+#ifdef _WIN32
+			edbuf[CurrentFileNo].rm = RM_crlf;
+#else
+			edbuf[CurrentFileNo].rm = RM_lf;
+#endif
 			edbuf[CurrentFileNo].cmode = check_cmode_ext(filename);
 			edbuf[CurrentFileNo].tabstop = edbuf[CurrentFileNo].cmode ? sysinfo.cmode_tabstop : sysinfo.tabstop;
 
@@ -477,6 +560,8 @@ int fileopen(char *filename, int kc, int line, int mode)
 	rewind(fp);
 	if(edbuf[CurrentFileNo].kc == KC_utf8bom) {
 		fseek(fp, 3, SEEK_SET);
+	} else if(edbuf[CurrentFileNo].kc >= KC_utf16le) {
+		fseek(fp, 2, SEEK_SET);
 	}
 
 	ki.fp = fp;
@@ -500,6 +585,7 @@ int fileopen(char *filename, int kc, int line, int mode)
 	}
 	edbuf[CurrentFileNo].cmode = check_cmode_ext(filename);
 	edbuf[CurrentFileNo].tabstop = edbuf[CurrentFileNo].cmode ? sysinfo.cmode_tabstop : sysinfo.tabstop;
+	edbuf[CurrentFileNo].readonly = (access(filename, W_OK) == 0) ? FALSE : TRUE;
 	csr_lenew();
 
 	if(line == -1) {
@@ -514,12 +600,16 @@ int fileopen(char *filename, int kc, int line, int mode)
 	return openOK;
 }
 
-bool file_insert(char *filename)
+int file_insert(char *filename)
 {
 	FILE *fp;
 	kinfo_t ki;
 
+#ifdef _WIN32
+	fp = fopen(filename, "rb");
+#else
 	fp = fopen(filename, "r");
+#endif
 	if(fp == NULL) {
 		return FALSE;
 	}
@@ -540,7 +630,7 @@ bool file_insert(char *filename)
 	return TRUE;
 }
 
-bool RenameFile(int current_no, const char *s)
+int RenameFile(int current_no, const char *s)
 {
 	int i;
 	char fn[MAXEDITLINE + 1];
@@ -613,6 +703,14 @@ int FileOpenOp(const char *path, int mode)
 			char *pt;
 			if((pt  = strrchr(pf, '/')) != NULL) {
 				*pt = '\0';
+#ifdef _WIN32
+				if(strlen(pf) == 2) {
+					*pt = '/'; *(pt + 1) = '\0';
+				}
+				if(pf[1] == ':') {
+					pf[0] = toupper(pf[0]);
+				}
+#endif
 				history_add_path(pf, historyDir);
 			}
 		}
@@ -635,7 +733,7 @@ int FileOpenOp(const char *path, int mode)
 	return res;
 }
 
-bool exec_file_open(int mode)
+int exec_file_open(int mode)
 {
 	int res;
 	char fname[LN_path + 1];
@@ -684,9 +782,9 @@ SHELL void op_file_open_readonly()
 	}
 }
 
-bool check_readonly()
+int check_readonly()
 {
-	bool flag = FALSE;
+	int flag = FALSE;
 	if(edbuf[CurrentFileNo].readonly) {
 		char buffer[MAXEDITLINE + 1];
 		sprintf(buffer, READONLY_MSG, edbuf[CurrentFileNo].path);
@@ -696,7 +794,7 @@ bool check_readonly()
 	return flag;
 }
 
-bool exec_file_insert()				/* ^[I */
+int exec_file_insert()				/* ^[I */
 {
 	char fname[MAXEDITLINE + 1];
 
@@ -762,7 +860,7 @@ SHELL void op_file_save()
 	system_msg(buffer);
 }
 
-bool fileclose(int n)
+int fileclose(int n)
 {
 	int m;
 	char *pt;
@@ -800,9 +898,12 @@ bool fileclose(int n)
 void set_temp_path(char *path)
 {
 	strcpy(temp_path, path);
+#ifdef _WIN32
+	change_dir_char(temp_path);
+#endif
 }
 
-bool filer_file_open()
+int filer_file_open()
 {
 	if(temp_path[0] != '\0') {
 		char fname[LN_path + 1];
@@ -843,7 +944,7 @@ void close_next()
 	}
 }
 
-bool exec_file_close()
+int exec_file_close()
 {
 	int n;
 	char path[LN_path + 1];
@@ -889,8 +990,7 @@ SHELL void op_file_aclose()
 SHELL void op_file_quit()
 {
 	int i, keep;
-	bool res, flag;
-	char path[LN_path + 1];
+	int res, flag;
 
 	CrtDrawAll();
 	system_guide();
@@ -935,7 +1035,7 @@ void op_file_undo()	/* 編集undo */
 {
 	long lineOffset;
 	char pf[LN_path + 1];
-	bool res;
+	int res;
 
 	CrtDrawAll();
 
@@ -968,12 +1068,20 @@ void op_menu_file()
 		res = menu_vselect(MENU_FILE_MSG, 0, 2, menuFileMax, MENU_OPEN_MSG, MENU_CLOSE_MSG, MENU_SAVE_MSG
 					, MENU_NEW_FILE_MSG, MENU_READ_FILE_MSG, MENU_CLOSE_OPEN_MSG, MENU_RENAME_MSG, MENU_DUPLICATE_MSG
 					, MENU_UNDO_MSG, MENU_INSERT_MSG, MENU_ALL_CLOSE_MSG
-					, MENU_MISC_EXEC_MSG, MENU_INSERT_OUTPUT_MSG, MENU_QUIT_MSG);
+					, MENU_MISC_EXEC_MSG
+#ifndef _WIN32
+					, MENU_INSERT_OUTPUT_MSG
+#endif
+					, MENU_QUIT_MSG);
 	} else {
 		res = menu_vselect(MENU_FILE_MSG, 0, 2, menuFileMax - 1, MENU_OPEN_MSG, MENU_CLOSE_MSG, MENU_SAVE_MSG
 					, MENU_READ_FILE_MSG, MENU_CLOSE_OPEN_MSG, MENU_RENAME_MSG, MENU_DUPLICATE_MSG
 					, MENU_UNDO_MSG, MENU_INSERT_MSG, MENU_ALL_CLOSE_MSG
-					, MENU_MISC_EXEC_MSG, MENU_INSERT_OUTPUT_MSG, MENU_QUIT_MSG);
+					, MENU_MISC_EXEC_MSG
+#ifndef _WIN32
+					, MENU_INSERT_OUTPUT_MSG
+#endif
+					, MENU_QUIT_MSG);
 	}
 	if(!sysinfo.newfilef) {
 		if(res >= menuFileNew) {
@@ -1017,9 +1125,11 @@ void op_menu_file()
 		case menuFileMiscExec:
 			op_misc_exec();
 			break;
+#ifndef _WIN32
 		case menuFileInsertOutput:
 			op_misc_insert_output();
 			break ;
+#endif
 		case menuFileQuit:
 			op_file_quit();
 			break ;

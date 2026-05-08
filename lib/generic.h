@@ -36,16 +36,16 @@
 #ifndef __ELE_GENERIC_H__
 #define __ELE_GENERIC_H__
 
-typedef int bool;
-
 #ifndef FALSE
 #define FALSE	0
 #define TRUE	!FALSE
 #endif
 
-#ifndef max
-#define max(x, y)	(x>y?x:y)
-#define min(x, y)	(x<y?x:y)
+#ifndef _WIN32
+ #ifndef max
+  #define max(x, y)	(x>y?x:y)
+  #define min(x, y)	(x<y?x:y)
+ #endif
 #endif
 
 extern void *mem_alloc(size_t n);
@@ -57,13 +57,13 @@ extern void mem_alloca_gc();
 extern char *mem_strdup(const char *s);
 extern char *mem_strdupa(const char *s);
 
-extern void reg_pf(const char *cp, char *s, bool f);
-extern void reg_path(const char *cp, char *s, bool f);
+extern void reg_pf(const char *cp, char *s, int f);
+extern void reg_path(const char *cp, char *s, int f);
 extern void cut_pf(const char *s, char *path, char *file);
 
 extern char *dir_pext(const char *s);
-extern char **dir_glob(const char *s, bool f_dotfile);
-extern bool dir_isdir(const char *s);
+extern char **dir_glob(const char *s, int f_dotfile);
+extern int dir_isdir(const char *s);
 
 
 
@@ -84,3 +84,4 @@ extern	void	report_puts(const char *s);
 
 
 #endif
+

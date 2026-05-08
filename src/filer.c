@@ -15,11 +15,17 @@
 #include "setopt.h"
 #include "list.h"
 #include "sh.h"
-#include "../lib/misc.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <direct.h>
+#else
 #include <sys/time.h>
+#endif
 #include <time.h>
 #include <ctype.h>
+#include "../lib/misc.h"
 
 static fw_t fw[2];
 static eff_t eff;
@@ -27,8 +33,13 @@ static eff_t eff;
 #define	FILE_MENU_X		1
 #define	FILE_MENU_COUNT	7
 #define	DIR_MENU_X		7
+#ifdef _WIN32
+#define	MASK_MENU_X		14
+#define	SORT_MENU_X		26
+#else
 #define	MASK_MENU_X		12
 #define	SORT_MENU_X		24
+#endif
 #define	SORT_MENU_COUNT	6
 #define	MENU_Y			1
 
@@ -55,6 +66,7 @@ typedef struct
 
 static dm_t dm[MAX_dm];
 static int dm_num, dm_loc;
+static int file_count;
 
 void dm_init()
 {
@@ -212,16 +224,21 @@ void set_path_title()
 	}
 }
 
-void fwc_chdir(const char *s, bool f)
+void fwc_chdir(const char *s, int f)
 {
 	char path[LN_path + 1];
-	bool uf;
+	int uf;
 
 	if(*s == '\0') {
 		return;
 	}
 
 	if(strcmp(s, "..") == 0) {
+#ifdef _WIN32
+		if(check_unc_root(fw_c.path)) {
+			return;
+		}
+#endif
 		uf = TRUE;
 		sprintf(path, "%.*s..", LN_path - 2, fw_c.path);
 		reg_path(NULL, path, FALSE);
@@ -233,9 +250,37 @@ void fwc_chdir(const char *s, bool f)
 			sprintf(path, "%s%s", fw_c.path, s);
 		}
 	}
-
+#ifdef _WIN32
+	if(!strcmp(path, "/")) {
+		if(fw[eff.wa].path[1] == ':') {
+			path[0] = fw[eff.wa].path[0];
+			path[1] = ':'; path[2] = '/'; path[3] = '\0';
+		}
+	} else if(!strcmp(path, "~")) {
+		get_home_dir(path, LN_path);
+	}
+	if(strlen(path) == 2 && path[1] == ':') {
+		size_t length;
+		get_current_dir(toupper(path[0]) - 'A', path);
+		length = strlen(path);
+		if(length > 2 && length < LN_path - 1) {
+			if(path[length - 1] != '/') {
+				path[length] = '/';
+				path[length + 1] = '\0';
+			}
+		}
+	} else {
+		reg_path(fw_c.path, path, FALSE);
+	}
+#else
 	reg_path(fw_c.path, path, FALSE);
+#endif
 	if(dir_isdir(path)) {
+#ifdef _WIN32
+		if(isalpha(path[0])) {
+			set_current_dir(toupper(path[0]) - 'A', path);
+		}
+#endif
 		dm_set(fw_c.path, fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn);
 		if(uf && strcmp(fw_c.path, "/") != 0) {
 			dm_set(path, fw_c.path + strlen(path));
@@ -364,7 +409,7 @@ void flist_set(flist_t *flp, const char *path)
 static int findex_comp(const void *x, const void *y)
 {
 	fitem_t *fi_x, *fi_y;
-	int i, j;
+	int j;
 	int sort = eff.sort;
 
 	fi_x = *(fitem_t **)x;
@@ -400,20 +445,20 @@ static int findex_comp(const void *x, const void *y)
 	case SA_none:
 		return 0;
 	case SA_fname:
-		if((j = strcmp(fi_x->fn, fi_y->fn)) == 0) {
-			j = strcmp(fi_x->e, fi_y->e);
+		if((j = strcasecmp(fi_x->fn, fi_y->fn)) == 0) {
+			j = strcasecmp(fi_x->e, fi_y->e);
 		}
 		break;
 	case SA_ext:
-		if((j = strcmp(fi_x->e, fi_y->e)) == 0) {
-			j = strcmp(fi_x->fn, fi_y->fn);
+		if((j = strcasecmp(fi_x->e, fi_y->e)) == 0) {
+			j = strcasecmp(fi_x->fn, fi_y->fn);
 		}
 		break;
 	case SA_new:
-		j = fi_y->stat.st_mtime - fi_x->stat.st_mtime;
+		j = (int)(fi_y->stat.st_mtime - fi_x->stat.st_mtime);
 		break;
 	case SA_old:
-		j = fi_x->stat.st_mtime - fi_y->stat.st_mtime;
+		j = (int)(fi_x->stat.st_mtime - fi_y->stat.st_mtime);
 		break;
 	case SA_large:
 		j = fi_y->stat.st_size - fi_x->stat.st_size;
@@ -442,19 +487,27 @@ fitem_t **findex_get(flist_t *flp)
 	return findex;
 }
 
-void prt_kmsize(char *s, off_t n)
+void prt_kmsize(char *s, off_t n, int wf)
 {
 	const char *scale = " KMGT";
 
-	if(n < (off_t)10 * 1000) {
-		sprintf(s, " %4d", (int)n);
+	if(n < (wf ? 10000000 : 100000)) {
+		if(wf) {
+			sprintf(s, "%7d", (int)n);
+		} else {
+			sprintf(s, "%5d", (int)n);
+		}
 		return;
 	}
 	while(n >= (off_t)10 * 1000 && *scale != '\0') {
 		n /= 1000;
 		++scale;
 	}
-	sprintf(s, "%4d%c", (int)n, *scale);
+	if(wf) {
+		sprintf(s, "  %4d%c", (int)n, *scale);
+	} else {
+		sprintf(s, "%4d%c", (int)n, *scale);
+	}
 }
 
 static void fw_item_proc(int a, mitem_t *mip, void *vp)
@@ -463,6 +516,8 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 	char *s, *p;
 	fw_t *fwp;
 	int elen = sysinfo.extlength;
+	int w = (check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) ? 34 : 32;
+	int wf = TRUE;
 
 	if(elen < 3) {
 		elen = 3;
@@ -470,7 +525,11 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 	fwp = vp;
 	s = mip->str;
 
-	strjfcpy(s, fwp->findex[a]->fn, MAXLINESTR, fwp->menu.drp->sizex - (elen - 4) - ((check_frame_ambiguous2() && sysinfo.framechar != frameCharTeraTerm) ? 32 : 30), TRUE);
+	if(fwp->menu.drp->sizex < 40) {
+		w -= 2;
+		wf = FALSE;
+	}
+	strjfcpy(s, fwp->findex[a]->fn, MAXLINESTR, fwp->menu.drp->sizex - (elen - 4) - w, TRUE);
 	p = fwp->findex[a]->e;
 	if(*p == '\0') {
 		int n = elen + 1;
@@ -481,8 +540,8 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 	} else {
 		int m, n;
 
-		n = strlen(s);
-		m = fwp->findex[a]->e - fwp->findex[a]->fn - 1;
+		n = (int)strlen(s);
+		m = (int)(fwp->findex[a]->e - fwp->findex[a]->fn - 1);
 		if(m < n) {
 			memset(s + m, ' ', n - m);
 		}
@@ -493,11 +552,14 @@ static void fw_item_proc(int a, mitem_t *mip, void *vp)
 
 	strcat(s, " ");
 	if((fwp->findex[a]->stat.st_mode & S_IFMT) == S_IFDIR) {
-		strcat(s, "<DIR>"); 
+		strcat(s, "<DIR>");
+		if(wf) {
+			strcat(s, "  ");
+		}
 		mip->cc = sysinfo.c_eff_dirc;
 		mip->nc = sysinfo.c_eff_dirn;
 	} else {
-		prt_kmsize(buf, fwp->findex[a]->stat.st_size);
+		prt_kmsize(buf, fwp->findex[a]->stat.st_size, wf);
 		strcat(s, buf);
 
 		mip->cc = sysinfo.c_eff_normc;
@@ -528,6 +590,7 @@ void fw_make(fw_t *fwp)
 	dm_get(fwp->path, fwp->match);
 
 	flist_set(&fwp->flist, fwp->path);
+	strcpy(fwp->title, fwp->path);
 	fwp->findex = findex_get(&fwp->flist);
 
 	fwp->marknum = 0;
@@ -610,7 +673,7 @@ void fw_chmarkall(fw_t *fwp)
 }
 
 /* file opration */
-static bool select_readonly(fop_t *fop)
+static int select_readonly(fop_t *fop)
 {
 	int res;
 
@@ -666,7 +729,7 @@ int fw_fop_file(const char *srcpath, const char *fn, struct stat *srcstp, const 
 				case FO_rename:
 					fop->om = 0;
 					strcpy(tmp, fn);
-					if(GetS(NEW_NAME_MSG, tmp, -1) == ESCAPE) {
+					if(GetS(NEW_NAME_MSG, tmp, -1, fw_c.menu.cy + 2) == ESCAPE) {
 						return FALSE;
 					}
 					sprintf(dstfn, "%s%s", dstpath, tmp);
@@ -700,19 +763,21 @@ int fw_fop_file(const char *srcpath, const char *fn, struct stat *srcstp, const 
 	}
 }
 
-int fw_fop_dir(const char *srcpath, const char *fn, struct stat *srcstp, const char *dstpath, fop_t *fop, bool wf)
+int fw_fop_dir(const char *srcpath, const char *fn, struct stat *srcstp, const char *dstpath, fop_t *fop, int wf)
 {
 	char dstfn[LN_path + 1], srcfn[LN_path + 1];
 	struct stat dstst;
 	int res;
-	bool f;
+	int f;
 
 	sprintf(srcfn, "%s%s", srcpath, fn);
 	if(dstpath != NULL) {
 		sprintf(dstfn, "%s%s", dstpath, fn);
 		if(stat(dstfn,&dstst) == 0) {
 			if((dstst.st_mode &S_IFMT) == S_IFDIR) {
+#ifndef _WIN32
 				chmod(dstfn, srcstp->st_mode);
+#endif
 				touchfile(dstfn, srcstp->st_atime, srcstp->st_mtime);
 				return FR_ok;
 			}
@@ -743,7 +808,6 @@ int fw_fop_list(fitem_t **findex, size_t fi_nums, const char *srcpath, const cha
 {
 	struct stat *srcstp;
 	int res;
-	char *p;
 	int i;
 
 	fitem_t **fip;
@@ -793,7 +857,7 @@ int fw_fop_list(fitem_t **findex, size_t fi_nums, const char *srcpath, const cha
 
 void fw_fop(fw_t *srcfwp, const char *dstpath, char *title
 	, int file_func(const char *, struct stat *, const char *, fop_t *)
-	, int dir_func(const char *, struct stat *, const char *, bool, fop_t *))
+	, int dir_func(const char *, struct stat *, const char *, int, fop_t *))
 {
 	int mn;
 	int n;
@@ -838,16 +902,19 @@ void fw_fop(fw_t *srcfwp, const char *dstpath, char *title
 }
 
 
-static int cp_proc_dir(const char *src, struct stat *srcstp, const char *dst, bool wf, fop_t *fop)
+static int cp_proc_dir(const char *src, struct stat *srcstp, const char *dst, int wf, fop_t *fop)
 {
 	if(!wf) {
 		return FR_ok;
 	}
-	if(mkdir(dst,0777) != 0) {
+	if(mkdir(dst, 0777) != 0) {
 		return FR_err;
 	}
+#ifndef _WIN32
 	chmod(dst, srcstp->st_mode);
+#endif
 	touchfile(dst, srcstp->st_atime, srcstp->st_mtime);
+	file_count++;
 	return FR_ok;
 }
 
@@ -856,7 +923,7 @@ static int cp_proc_dir(const char *src, struct stat *srcstp, const char *dst, bo
 static int cp_proc_file(const char *src, struct stat *srcstp, const char *dst, fop_t *fop)
 {
 	FILE *fpr, *fpw;
-	bool ef;
+	int ef;
 
 	fpr = fopen(src, "r");
 	if(fpr == NULL) {
@@ -872,13 +939,13 @@ static int cp_proc_file(const char *src, struct stat *srcstp, const char *dst, f
 		char buf[MAX_cpbuf];
 		int n, m;
 
-		n = fread(buf, 1, MAX_cpbuf, fpr);
+		n = (int)fread(buf, 1, MAX_cpbuf, fpr);
 		if(n == 0) {
 			break;
 		}
 		m = 0;
 		while(n - m > 0) {
-			m = fwrite(buf + m, 1, n - m, fpw);
+			m = (int)fwrite(buf + m, 1, n - m, fpw);
 		}
 		if(m == 0) {
 			ef = TRUE;
@@ -892,12 +959,15 @@ static int cp_proc_file(const char *src, struct stat *srcstp, const char *dst, f
 		return FR_err;
 	}
 	fclose(fpr);
+#ifndef _WIN32
 	chmod(dst, srcstp->st_mode);
+#endif
 	touchfile(dst, srcstp->st_atime, srcstp->st_mtime);
+	file_count++;
 	return FR_ok;
 }
 
-static int mv_proc_dir(const char *src, struct stat *srcstp, const char *dst, bool wf, fop_t* fop)
+static int mv_proc_dir(const char *src, struct stat *srcstp, const char *dst, int wf, fop_t* fop)
 {
 	if(!wf) {
 		rmdir(src);
@@ -926,27 +996,29 @@ static int mv_proc_file(const char *src, struct stat *srcstp, const char *dst, f
 
 static int rm_proc_file(const char *src, struct stat *srcstp, const char *dst, fop_t *fop)
 {
-	if(access(src,W_OK) < 0 && !select_readonly(fop)) {
+	if(access(src, W_OK) < 0 && !select_readonly(fop)) {
 		return FR_ok;
 	}
 	if(unlink(src) == 0) {
+		file_count++;
 		return FR_ok;
 	}
 	return FR_err;
 }
 
-static int  rm_proc_dir(const char *src, struct stat *srcstp, const char *dst, bool wf, fop_t* fop)
+static int rm_proc_dir(const char *src, struct stat *srcstp, const char *dst, int wf, fop_t* fop)
 {
 	if(wf) {
 		return FR_ok;
 	}
 	if(rmdir(src) == 0) {
+		file_count++;
 		return FR_ok;
 	}
 	return FR_err;
 }
 
-bool fw_cpdest(char *s, fw_t *srcfwp, fw_t *dstfwp, bool move)
+int fw_cpdest(char *s, fw_t *srcfwp, fw_t *dstfwp, int move)
 {
 	char srcpath[LN_path + 1];
 
@@ -960,7 +1032,7 @@ bool fw_cpdest(char *s, fw_t *srcfwp, fw_t *dstfwp, bool move)
 		}
 	}
 	*s = '\0';
-	if(GetS(move ? MOVE_TO_MSG : COPY_TO_MSG, s, -1) == ESCAPE) {
+	if(GetS(move ? MOVE_TO_MSG : COPY_TO_MSG, s, -1, srcfwp->menu.cy + 3) == ESCAPE) {
 		return FALSE;
 	}
 	reg_path(srcpath, s, FALSE);
@@ -978,10 +1050,13 @@ void fw_copy(fw_t *srcfwp, fw_t *dstfwp)
 		return;
 	}
 
+	file_count = 0;
 	fw_fop(srcfwp, buf, COPY_MSG, cp_proc_file, cp_proc_dir);
 	if(dstfwp != NULL) {
 		fw_make(dstfwp);
 	}
+	sprintf(buf, COPY_END_MSG, file_count);
+	system_msg(buf);
 }
 
 void fw_move(fw_t *srcfwp, fw_t *dstfwp)
@@ -992,32 +1067,44 @@ void fw_move(fw_t *srcfwp, fw_t *dstfwp)
 		return;
 	}
 
+	file_count = 0;
 	fw_fop(srcfwp, buf, MOVE_MSG, mv_proc_file, mv_proc_dir);
 	fw_make(srcfwp);
 
 	if(dstfwp != NULL) {
 		fw_make(dstfwp);
 	}
+	sprintf(buf, MOVE_END_MSG, file_count);
+	system_msg(buf);
 }
 
 void fw_remove(fw_t *srcfwp, fw_t *dstfwp)
 {
+	char buf[LN_path + 1];
+
+	dsp_allview();
 	if(keysel_ynq(DO_DELETE_MSG) != TRUE) {
+		system_msg("");
 		return;
 	}
+
+	file_count = 0;
 	fw_fop(srcfwp, NULL, DELETE_MSG, rm_proc_file, rm_proc_dir);
 	fw_make(srcfwp);
+
+	sprintf(buf, DELETE_END_MSG, file_count);
+	system_msg(buf);
 }
 
-void fw_rename(fw_t *fwp)
+int fw_rename(fw_t *fwp)
 {
 	char buf[LN_path + 1], tmp[LN_path + 1];
 	char *fn;
 
 	fn = fw_c.findex[fw_c.menu.cy + fw_c.menu.sy]->fn;
 	strcpy(tmp, fn);
-	if(GetS(NEW_NAME_MSG, tmp, -1) == ESCAPE) {
-		return;
+	if(GetS(NEW_NAME_MSG, tmp, -1, fw_c.menu.cy + 3) == ESCAPE) {
+		return FALSE;
 	}
 
 	getcwd(buf, LN_path);
@@ -1026,21 +1113,23 @@ void fw_rename(fw_t *fwp)
 		dm_set(fwp->path, tmp);
 	}
 	chdir(buf);
+	return TRUE;
 }
 
-void fw_mkdir(fw_t *fwp)
+int fw_mkdir(fw_t *fwp)
 {
 	char buf[LN_path + 1], tmp[LN_path + 1];
 
 	*tmp = '\0';
-	if(GetS(MKDIR_MSG, tmp, -1) == ESCAPE) {
-		return;
+	if(GetS(MKDIR_MSG, tmp, -1, fwp->menu.cy + 3) == ESCAPE) {
+		return FALSE;
 	}
 	strcpy(buf, fwp->path);
 	if(strlen(buf) + strlen(tmp) < LN_path) {
 		strcat(buf, tmp);
-		mkdir(buf, 0777);
+		return !mkdir(buf, 0777);
 	}
+	return FALSE;
 }
 
 void CommandCom(char *sys_buff);
@@ -1065,12 +1154,14 @@ int fw_file(char *fn)
 			fw_remove(&fw[eff.wa],NULL);
 			break;
 		case fileRename:
-			fw_rename(&fw[eff.wa]);
-			fw_make(&fw[eff.wa]);
+			if(fw_rename(&fw[eff.wa])) {
+				fw_make(&fw[eff.wa]);
+			}
 			break;
 		case fileMkdir:
-			fw_mkdir(&fw[eff.wa]);
-			fw_make(&fw[eff.wa]);
+			if(fw_mkdir(&fw[eff.wa])) {
+				fw_make(&fw[eff.wa]);
+			}
 			break;
 		case fileNew:
 			fname[0] = '\0';
@@ -1104,6 +1195,7 @@ int fw_file(char *fn)
 			break;
 		}
 	}
+	term_cls();
 	return f;
 }
 
@@ -1145,9 +1237,11 @@ void fw_dir()
 		if(res >= 0) {
 			if(res < icount) {
 				if((str = get_string_item(itemDir, res)) != NULL) {
+#ifndef _WIN32
 					if(res == 0) {
 						str = "~";
 					}
+#endif
 				}
 			} else {
 				str = history_get_position_path(historyDir, res - icount);
@@ -1196,7 +1290,7 @@ void fw_mask()
 		res = menu_select(&menu);
 		menu_itemfin(&menu);
 		if((str = get_string_item(itemMask, res)) != NULL) {
-			int len = strlen(str);
+			int len = (int)strlen(str);
 			clear_string_item(itemUse);
 			if(len >= 2) {
 				str += 2;
@@ -1248,12 +1342,14 @@ int eff_check_open()
 	return eff.open;
 }
 
-bool eff_filer(char *fn)
+int eff_filer(char *fn)
 {
 	int c;
 	char *p;
-	bool f;
+	int f, msg_flag;
 
+	f = FALSE;
+	msg_flag = FALSE;
 	eff.open = TRUE;
 
 	fw_make(&fw[0]);
@@ -1268,7 +1364,10 @@ bool eff_filer(char *fn)
 			strcpy(fw[eff.wa].footer, p);
 		}
 		dsp_allview();
-		system_msg("");
+		if(!msg_flag) {
+			system_msg("");
+		}
+		msg_flag = FALSE;
 
 		term_csrh();
 		c = get_keyf(2);
@@ -1353,6 +1452,7 @@ bool eff_filer(char *fn)
 			if(fw_file(fn)) {
 				break;
 			}
+			msg_flag = TRUE;
 			continue;
 		case KF_EffDirMenu:
 			fw_dir();
@@ -1391,7 +1491,7 @@ bool eff_filer(char *fn)
 	return f;
 }
 
-bool need_filer(const char* pszFilename)
+int need_filer(const char* pszFilename)
 {
 	if(*pszFilename == '\0') {
 		return TRUE;

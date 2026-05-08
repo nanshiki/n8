@@ -13,7 +13,11 @@
 --------------------------------------------------------------------*/
 #include "n8.h"
 #include "cursor.h"
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <iconv.h>
+#endif
 #include <ctype.h>
 
 #define	issjis1(c)	(((unsigned char)(c) >= 0x81 &&(unsigned char)(c) <= 0x9f) || ((unsigned char)(c) >= 0xe0 &&(unsigned char)(c) <= 0xfc))
@@ -22,12 +26,12 @@
 #define	iseuc(c)	((unsigned char)(c) >= 0xa1 &&(unsigned char)(c) <= 0xfe)
 #define	isjis(c)	((unsigned char)(c) >= 0x21 &&(unsigned char)(c) <= 0x7e)
 
-bool iscnt(unsigned char c)
+int iscnt(unsigned char c)
 {
 	return iscntrl(c) && c < 0x7f;
 }
 
-bool iskanji(int c)
+int iskanji(int c)
 {
 	return (c & 0x80) == 0x80;
 }
@@ -85,7 +89,6 @@ int get_utf8_width_string(const char *str)
 
 int utf8_disp_copy(char *dst, const char *src, int count)
 {
-	int ch, cc;
 	int width;
 	int length = 0;
 
@@ -137,7 +140,7 @@ int IsKanjiPosition()
 {
 	int ch, i, len;
 
-	len = strlen(csrle.buf);
+	len = (int)strlen(csrle.buf);
 	i = GetBufferOffset();
 	ch = csrle.buf[i] & 0xf0;
 	if(ch >= 0xc0) {
@@ -204,7 +207,7 @@ int kanji_getctype(const char *pt)
 	return CT_kkigou;
 }
 
-int kanji_tknext(const char *s, int a, bool f)
+int kanji_tknext(const char *s, int a, int f)
 {
 	int pa, pb;
 
@@ -212,7 +215,7 @@ int kanji_tknext(const char *s, int a, bool f)
 		return a;
 	}
 	if(a > strlen(s)) {
-		return strlen(s);
+		return (int)strlen(s);
 	}
 
 	if(iskanji(s[a])) {
@@ -248,7 +251,7 @@ int kanji_tkleft(const char *s, int a)
 	return a;
 }
 
-int kanji_tkprev(const char *s, int a, bool f)
+int kanji_tkprev(const char *s, int a, int f)
 {
 	int pa, pb;
 
@@ -256,7 +259,7 @@ int kanji_tkprev(const char *s, int a, bool f)
 		return 0;
 	}
 	if(a > strlen(s)) {
-		return strlen(s);
+		return (int)strlen(s);
 	}
 	a = kanji_tkleft(s, a);
 	pa = char_getctype(s[a]);
@@ -302,19 +305,79 @@ int kanji_tkprev(const char *s, int a, bool f)
 #define	SI	0x0f
 #define	SO	0x0e
 
+#ifdef _WIN32
+static int source_cp[] = {
+	20932,
+	50221,
+	932,
+	CP_UTF8
+};
+#else
 static const char *source_name[] = {
 	"EUC-JP",
-	"ISO-2022-JP-2",
+	"ISO-2022-JP",
 	"CP932",
 	"UTF-8",
 	"UTF-8",
+	"UTF-16LE",
+	"UTF-16BE",
 };
+#endif
+
+int utf16_from_utf8(char *dst, const char *src, int kc)
+{
+#ifdef _WIN32
+	int length;
+
+	if(length = MultiByteToWideChar(CP_UTF8, 0, src, -1, (unsigned short *)dst, MAXEDITLINE * 2)) {
+		if(kc == KC_utf16be) {
+			unsigned short data;
+			unsigned short *pt = (unsigned short *)dst;
+			while(*pt != 0) {
+				data = *pt;
+				*pt++ = (data << 8) | (data >> 8);
+			}
+		}
+		return (length - 1) * 2;
+	}
+	return 0;
+#else
+	iconv_t ic;
+
+	if((ic = iconv_open(kc == KC_utf16le ? "UTF-16LE" : "UTF-16BE", "UTF-8")) != (iconv_t)-1) {
+		char *src_pt, *dst_pt;
+		size_t src_length = strlen(src);
+		size_t dst_length = src_length * 4;
+
+		src_pt = (char *)src;
+		dst_pt = (char *)dst;
+		iconv(ic, &src_pt, &src_length, &dst_pt, &dst_length);
+
+		iconv_close(ic);
+		return (int)(dst_pt - dst);
+	}
+	return 0;
+#endif
+}
 
 const char *kanji_from_utf8(char *dst, const char *src, int kc)
 {
 	if(kc >= KC_utf8) {
 		return src;
 	}
+#ifdef _WIN32
+	int len, wlen;
+	*dst = '\0';
+	wlen = MultiByteToWideChar(CP_UTF8, 0, src, (int)strlen(src), NULL, 0);
+	WCHAR *wtemp = (WCHAR *)malloc((wlen + 1) * sizeof(WCHAR));
+	if(wtemp != NULL) {
+		MultiByteToWideChar(CP_UTF8, 0, src, (int)strlen(src), wtemp, wlen);
+		len = WideCharToMultiByte(source_cp[kc], 0, wtemp, wlen, NULL, 0, NULL, NULL);
+		WideCharToMultiByte(source_cp[kc], 0, wtemp, wlen, dst, len, NULL, NULL);
+		*(dst + len) = '\0';
+		free(wtemp);
+	}
+#else
 	iconv_t ic;
 
 	if((ic = iconv_open(source_name[kc], "UTF-8")) != (iconv_t)-1) {
@@ -329,6 +392,7 @@ const char *kanji_from_utf8(char *dst, const char *src, int kc)
 
 		iconv_close(ic);
 	}
+#endif
 	return dst;
 }
 
@@ -341,11 +405,13 @@ void write_utf8_bom(FILE *fp)
 
 int file_kanji_check(FILE *fp)
 {
-	int c, h, ch;
+	int c, ch;
 	int f_sjis, f_euc, f_utf8;
 	int n_sjis, n_sjis_i, n_euc, n_euc_i;
 	int n_utf8, n_utf8_i;
 	int bom = 0;
+	int utf16le = 0;
+	int utf16be = 0;
 
 	n_sjis = 0;
 	n_sjis_i = 0;
@@ -368,6 +434,24 @@ int file_kanji_check(FILE *fp)
 				}
 			} else {
 				bom = -1;
+			}
+		}
+		if(utf16le != -1) {
+			if(utf16le == 0 && c == 0xff) {
+				utf16le = 1;
+			} else if(utf16le == 1 && c == 0xfe) {
+				return KC_utf16le;
+			} else {
+				utf16le = -1;
+			}
+		}
+		if(utf16be != -1) {
+			if(utf16be == 0 && c == 0xfe) {
+				utf16be = 1;
+			} else if(utf16be == 1 && c == 0xff) {
+				return KC_utf16be;
+			} else {
+				utf16be = -1;
 			}
 		}
 		if(c == EOF || n_euc > 20 || n_sjis > 20) {
@@ -438,7 +522,7 @@ int file_kanji_check(FILE *fp)
 int file_gets(char *s, size_t bytes, FILE *fp, int *n_cr, int *n_lf)
 {
 	int c;
-	bool f_cr;
+	int f_cr;
 
 	f_cr = FALSE;
 	for( ; bytes > 0 ; ) {
@@ -469,12 +553,93 @@ int file_gets(char *s, size_t bytes, FILE *fp, int *n_cr, int *n_lf)
 	return c;
 }
 
+int file_gets_utf16(unsigned short *s, size_t words, FILE *fp, int *n_cr, int *n_lf, int kc)
+{
+	int c, c1, c2;
+	int f_cr;
+
+	f_cr = FALSE;
+	for( ; words > 0 ; ) {
+		c1 = fgetc(fp);
+		c2 = fgetc(fp);
+		if(kc == KC_utf16le) {
+			c = (c2 << 8) | c1;
+		} else {
+			c = (c1 << 8) | c2;
+		}
+		if(c == LF || f_cr) {
+			if(c == LF) {
+				++*n_lf;
+			} else {
+				ungetc(c2, fp);
+				ungetc(c1, fp);
+			}
+			c = 0;
+			break;
+		}
+		if(c1 == EOF || c2 == EOF) {
+			c = -1;
+			break;
+		}
+		if(c == CR) {
+			f_cr = TRUE;
+			++*n_cr;
+			continue;
+		}
+
+		*s++ = c;
+		--words;
+	}
+	*s = '\0';
+	return c;
+}
+
+void utf16_to_utf8(char *dst, const unsigned short *src, int kc)
+{
+#ifdef _WIN32
+	WideCharToMultiByte(CP_UTF8, 0, src, -1, dst, MAXEDITLINE * 4, NULL, NULL);
+#else
+	iconv_t ic;
+
+	if((ic = iconv_open("UTF-8", "UTF-16LE")) != (iconv_t)-1) {
+		char *src_pt, *dst_pt;
+		size_t src_length, dst_length;
+		unsigned short *pt = (unsigned short *)src;
+
+		src_length = 0;
+		while(*pt != 0) {
+			src_length += 2;
+			pt++;
+		}
+		dst_length = src_length * 4;
+		src_pt = (char *)src;
+		dst_pt = (char *)dst;
+		iconv(ic, &src_pt, &src_length, &dst_pt, &dst_length);
+		*dst_pt = '\0';
+
+		iconv_close(ic);
+	}
+#endif
+}
+
 void kanji_to_utf8(char *dst, const char *src, int kc)
 {
 	if(kc >= KC_utf8) {
 		strcpy(dst, src);
 		return;
 	}
+#ifdef _WIN32
+	int len = MultiByteToWideChar(source_cp[kc], 0, src, -1, NULL, 0);
+	WCHAR *wtemp = (WCHAR *)malloc((len + 1) * sizeof(WCHAR));
+	if(wtemp != NULL) {
+		MultiByteToWideChar(source_cp[kc], 0, src, -1, wtemp, len);
+		len = WideCharToMultiByte(CP_UTF8, 0, wtemp, -1, NULL, 0, NULL, NULL);
+		if(len > 0) {
+			WideCharToMultiByte(CP_UTF8, 0, wtemp, -1, dst, len, NULL, NULL);
+		}
+		free(wtemp);
+	}
+#else
 	iconv_t ic;
 
 	if((ic = iconv_open("UTF-8", source_name[kc])) != (iconv_t)-1) {
@@ -489,13 +654,14 @@ void kanji_to_utf8(char *dst, const char *src, int kc)
 
 		iconv_close(ic);
 	}
+#endif
 }
 
 int kanji_poscanon(int offset, const char *buf)
 {
 	int n, m;
 
-	offset = min(strlen(buf), offset);
+	offset = min((int)strlen(buf), offset);
 	n = m = 0;
 	for(;;) {
 		if(n == offset) {
@@ -514,7 +680,7 @@ int kanji_poscandsp(int offset, const char *buf)
 {
 	int n, m, a, ln;
 
-	ln = strlen(buf);
+	ln = (int)strlen(buf);
 	n = m = a = 0;
 	for(;;) {
 		if(n == offset) {
@@ -588,12 +754,32 @@ int kanji_posbuf(int offset, const char *buf)
 	}
 }
 
-int strjfcpy(char *s, const char *t, size_t bytes, size_t len, bool space)
+int strjcpy(char *s, const char *t, size_t bytes)
+{
+	int n;
+	int length = 0;
+
+	while(*t != 0) {
+		n = kanji_countbuf(t);
+		if(bytes < n) {
+			break;
+		}
+		memcpy(s, t, n);
+		s += n;
+		t += n;
+		bytes -= n;
+		length += n;
+	}
+	*s = '\0';
+	return length;
+}
+
+int strjfcpy(char *s, const char *t, size_t bytes, size_t len, int space)
 {
 	int n, m;
 	int width = 0;
 
-	for( ; *t != 0 ; ) {
+	while(*t != 0) {
 		n = kanji_countbuf(t);
 		m = kanji_countdsp(t, -1);
 		if(bytes < n || len < m) {
@@ -647,7 +833,7 @@ int is_combining_char(const char *p)
 {
 	if(sysinfo.nfdf) {
 		const unsigned char *pu = (const unsigned char *)p;
-		// ë˜ì_ÅEîºë˜ì_çáê¨ï∂éö
+		// ÊøÅÁÇπ„ÉªÂçäÊøÅÁÇπÂêàÊàêÊñáÂ≠ó
 		if(*pu == 0xe3 && *(pu + 1) == 0x82 && (*(pu + 2) == 0x99 || *(pu + 2) == 0x9a)) {
 			return TRUE;
 		}
@@ -659,7 +845,7 @@ int is_svs_select_char(const char *p)
 {
 	const unsigned char *pu = (const unsigned char *)p;
 	if(*pu == 0xef && *(pu + 1) == 0xb8 && *(pu + 2) >= 0x80 && *(pu + 2) <= 0x8f) {
-		// àŸëÃéöÅEäGï∂éöÉZÉåÉNÉ^
+		// Áï∞‰ΩìÂ≠ó„ÉªÁµµÊñáÂ≠ó„Çª„É¨„ÇØ„Çø
 		return TRUE;
 	}
 	return FALSE;
@@ -669,7 +855,7 @@ int is_ivs_select_char(const char *p)
 {
 	const unsigned char *pu = (const unsigned char *)p;
 	if(*pu == 0xf3 && *(pu + 1) == 0xa0) {
-		// àŸëÃéöÉZÉåÉNÉ^
+		// Áï∞‰ΩìÂ≠ó„Çª„É¨„ÇØ„Çø
 		if(*(pu + 2) >= 0x84 && *(pu + 2) <= 0x86 && *(pu + 3) >= 0x80 && *(pu + 2) <= 0xbf) {
 			return TRUE;
 		} else if(*(pu + 2) == 0x87 && *(pu + 3) >= 0x80 && *(pu + 2) <= 0xaf) {
@@ -757,11 +943,11 @@ int get_display_length(const char *str)
 		ch = (unsigned char)*str & 0xf0;
 		if(ch >= 0xc0) {
 			if(is_combining_char(str)) {
-				// ë˜ì_ÅEîºë˜ì_çáê¨ï∂éö
+				// ÊøÅÁÇπ„ÉªÂçäÊøÅÁÇπÂêàÊàêÊñáÂ≠ó
 				length--;
 				str += 2;
 			} else if(is_half_kana(str)) {
-				// îºäpÉJÉi
+				// ÂçäËßí„Ç´„Éä
 				str += 2;
 			} else {
 				if(!term_utf8_half_char(str)) {

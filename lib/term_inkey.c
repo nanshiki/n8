@@ -45,13 +45,16 @@
 
 #include <errno.h>
 
+#ifndef _WIN32
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #endif
 
 
 #include "generic.h"
 #include "term.h"
+#include "misc.h"
 
 #define SENSEPERSEC	50
 #define WAITKEYPAD	360		/* msec */
@@ -92,7 +95,7 @@ void term_escset(int n, const char *e, const char *d)
 	} else {
 		esc[esc_num].seq = mem_strdup(e);
 	}
-	esc[esc_num].len = strlen(esc[esc_num].seq);
+	esc[esc_num].len = (int)strlen(esc[esc_num].seq);
 	++esc_num;
 }
 
@@ -1494,7 +1497,7 @@ int keysdef_getcode(const char *s, int k[], int num)
 {
 	int i;
 	int n, ln;
-	char *p;
+	const char *p;
 
 	for(n = 0 ; n < num && *s != '\0' ; ++n) {
 		k[n] = 0;
@@ -1522,7 +1525,7 @@ int keysdef_getcode(const char *s, int k[], int num)
 
 		++s;
 		p = strchr(s, ']');
-		ln = p - s;
+		ln = (int)(p - s);
 
 		for(i = 0 ; ; ++i) {
 			if(keysdef[i].name == NULL) {
@@ -1553,8 +1556,6 @@ void keys_set(const char *k, const char *e, const char *d)
 
 int term_escdefault_cmp(const void *v, const void *w)
 {
-	esc_t *kp_v, *kp_w;
-
 	return strcmp(((esc_t *)v)->seq, ((esc_t *)w)->seq);
 }
 

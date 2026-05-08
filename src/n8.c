@@ -26,6 +26,7 @@
 #include "keyf.h"
 #include "list.h"
 #include "setopt.h"
+#include "lineedit.h"
 #include "sh.h"
 #include <ctype.h>
 #include <locale.h>
@@ -33,11 +34,22 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef _WIN32
 #include <sys/wait.h>
+#endif
 
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <direct.h>
+#else
 #ifdef HAVE_SYS_UTSNAME_H
  #include <sys/utsname.h>
 #endif
+#endif
+
+#include "../lib/regexp.h"
+#include "../lib/misc.h"
 
 /*-------------------------------------------------------------------
 	Main Command Loop
@@ -87,12 +99,16 @@ void n8_init()
 	sysinfo.vp_def = hash_init(NULL, MAX_val);
 	opt_default();
 
+#ifdef _WIN32
+	get_home_dir(sysinfo.nxpath, LN_path);
+#else
 	p = getenv("HOME");
 	if(p != NULL) {
 		strcpy(sysinfo.nxpath, p);
 	} else {
 		getcwd(sysinfo.nxpath, LN_path);
 	}
+#endif
 	strcat(sysinfo.nxpath, "/.n8");
 	mkdir(sysinfo.nxpath, 0777);
 
@@ -116,68 +132,92 @@ void delete_lock_file()
 	unlink(buf);
 }
 
-bool n8_arg(int argc, char *argv[])
+#ifdef _WIN32
+int n8_arg(int argc, wchar_t *argv[])
+#else
+int n8_arg(int argc, char *argv[])
+#endif
 {
 	int line;
 	int optcount;
 	char buf[LN_dspbuf + 1];
-	bool f;
-	int c;
-	char *sp, *p;
+	int f;
+	char *sp;
 	char *rname = NULL;
 
 	line = 0;
 	f = FALSE;
 
+	sysinfo_optset();
 	for(optcount = 1 ; optcount < argc ; ++optcount) {
-		c = getopt(argc, argv, "jecrD:");
-		if(c == EOF) {
-			break;
-		}
-		switch(c) {
-		case 'j':
-			hash_set(sysinfo.vp_def, "japanese", "true");
-			break;
-		case 'e':
-			hash_set(sysinfo.vp_def, "japanese", "false");
-			break;
-		case 'c':
-			delete_lock_file();
-			break;
-		case 'r':
-			{
-				HistoryData *hi = history_get_last(historyOpen);
-				if(hi != NULL && hi->buffer != NULL) {
-					rname = hi->buffer;
+		if(argv[optcount][0] == '-') {
+			switch(argv[optcount][1]) {
+			case 'j':
+				hash_set(sysinfo.vp_def, "japanese", "true");
+				break;
+			case 'e':
+				hash_set(sysinfo.vp_def, "japanese", "false");
+				break;
+			case 'c':
+				delete_lock_file();
+				break;
+			case 'r':
+				{
+					HistoryData *hi = history_get_last(historyOpen);
+					if(hi != NULL && hi->buffer != NULL) {
+						rname = hi->buffer;
+					}
 				}
+				break;
+			case 'D':
+				if(optcount < argc - 1) {
+					optcount++;
+#ifdef _WIN32
+					wchar_to_utf8(argv[optcount], buf, LN_dspbuf);
+#else
+					strjcpy(buf, argv[optcount], LN_dspbuf);
+#endif
+					sp = buf;
+					strsep(&sp, "=");
+					if(sp != NULL) {
+						hash_set(sysinfo.vp_def, buf, sp);
+					}
+				}
+				break;
 			}
-			break;
-		case 'D':
-			strcpy(buf, optarg);
-			optcount++;
-			sp = buf;
-			strsep(&sp, "=");
-			if(sp != NULL) {
-				hash_set(sysinfo.vp_def, buf, sp);
+		} else if(argv[optcount][0] == '+') {
+#ifdef _WIN32
+			line = _wtoi(&argv[optcount][1]);
+#else
+			line = atoi(&argv[optcount][1]);
+#endif
+		} else {
+#ifdef _WIN32
+			char current_path[LN_path + 1];
+			getcwd(current_path, LN_path);
+			if(argv[optcount][0] == '.' && (argv[optcount][1] == '/' || argv[optcount][1] == '\\')) {
+				wchar_to_utf8(&argv[optcount][2], buf, LN_dspbuf);
+			} else {
+				wchar_to_utf8(argv[optcount], buf, LN_dspbuf);
 			}
-			break;
+			correct_path(buf, current_path);
+#else
+			if(argv[optcount][0] == '.' && (argv[optcount][1] == '/' || argv[optcount][1] == '\\')) {
+				strjcpy(buf, &argv[optcount][2], LN_dspbuf);
+			} else {
+				strjcpy(buf, argv[optcount], LN_dspbuf);
+			}
+#endif
+			if(FileOpenOp(buf, openModeNormal) == openOK) {
+			 	f = TRUE;
+			} else if(dir_isdir(buf)) {
+				set_temp_path(buf);
+			}
 		}
 	}
-	sysinfo_optset();
 	if(rname != NULL) {
 		if(FileOpenOp(rname, openModeNormal) == openOK) {
 		 	f = TRUE;
-		}
-	}
-	for( ; optcount < argc ; ++optcount) {
-		if(*argv[optcount] == '+') {
-			line = atoi(argv[optcount] + 1);
-		} else {
-			if(FileOpenOp(argv[optcount], openModeNormal) == openOK) {
-			 	f = TRUE;
-			} else if(dir_isdir(argv[optcount])) {
-				set_temp_path(argv[optcount]);
-			}
 		}
 	}
 	if(f && line > 0) {
@@ -190,22 +230,41 @@ bool n8_arg(int argc, char *argv[])
 	return f;
 }
 
-void signal_func()
+#ifdef _WIN32
+BOOL WINAPI signal_func(DWORD signal)
+{
+	if(signal != CTRL_C_EVENT) {
+		delete_lock_file();
+		return TRUE;
+	}
+	return FALSE;
+}
+
+#else
+void signal_func(int sig)
 {
 	delete_lock_file();
 
 	exit(1);
 }
+#endif
 
+#ifdef _WIN32
+int wmain(int argc, wchar_t *argv[])
+#else
 int main(int argc, char *argv[])
+#endif
 {
-	bool open_flag;
-
+	int open_flag;
+#ifdef _WIN32
+	SetConsoleCtrlHandler(signal_func, TRUE);
+	regexp_init();
+#else
 	signal(SIGHUP, signal_func);
 	signal(SIGTERM, signal_func);
 	signal(SIGBUS, signal_func);
 	signal(SIGSEGV, signal_func);
-
+#endif
 	term_init();
 	term_start();
 	term_cls();
@@ -238,6 +297,10 @@ int main(int argc, char *argv[])
 		n8_loop(0);
 	}
 	history_save_file();
+	delete_lock_file();
+#ifdef _WIN32
+	term_stop();
+#endif
 }
 
 /*-------------------------------------------------------------------
@@ -245,7 +308,7 @@ int main(int argc, char *argv[])
 -------------------------------------------------------------------*/
 void CommandCom(char *sys_buff)
 {
-	bool f;
+	int f;
 
 	term_stop();
 	if(*sys_buff == '\0') {
@@ -296,6 +359,7 @@ void op_misc_redraw()
 */
 void op_misc_insert_output(void)
 {
+#ifndef _WIN32
 	pid_t pid_child;
 	int pipefds[2];
 	char buf[MAXEDITLINE + 1] = "";
@@ -352,7 +416,7 @@ void op_misc_insert_output(void)
 				system_msg("");
 			} else {
 				EditLine *ed, *ed_new;
-				bool f;
+				int f;
 				int n;
 
 				csr_leupdate();
@@ -387,5 +451,6 @@ void op_misc_insert_output(void)
 			term_cls();
 		}
 	}
+#endif
 }
 

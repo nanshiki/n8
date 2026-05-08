@@ -38,12 +38,21 @@
 #include	<string.h>
 #include	<sys/types.h>
 #include	<sys/stat.h>
+#ifdef _WIN32
+#include	<sys/utime.h>
+#include	<direct.h>
+int utf8_to_wchar(const char *src, wchar_t *dst, int len);
+int check_unc_root(const char *path);
+#else
 #include	<utime.h>
 #include	<unistd.h>
+#endif
 #include	<fcntl.h>
 #include	"generic.h"
 
-/* ¡ù misc */
+#define LN_path 2048
+
+/* misc */
 // UTF-8
 void strjncpy(char *dst, const char *src, size_t ln)
 {
@@ -87,27 +96,32 @@ void strjncpy(char *dst, const char *src, size_t ln)
 
 int touchfile(const char *path, time_t atime, time_t mtime)
 {
+#ifdef _WIN32
+	struct _utimbuf times;
+	wchar_t wpath[LN_path + 1];
+#else
 	struct utimbuf times;
+#endif
 	times.actime = atime;
 	times.modtime = mtime;
+#ifdef _WIN32
+	utf8_to_wchar(path, wpath, LN_path);
+	return _wutime(wpath, &times);
+#else
 	return utime(path, &times);
-
-/*
-	struct timeval tvp[2];
-
-	tvp[0].tv_sec = atime;
-	tvp[0].tv_usec = 0;
-	tvp[1].tv_sec = mtime;
-	tvp[1].tv_usec = 0;
-	return utimes(path, tvp);
-*/
+#endif
 }
 
-bool mole_dir(const char *s)
+int mole_dir(const char *s)
 {
 	const char *p;
-	char buf[1024 + 1];	// !! buf size
+	char buf[LN_path + 1];	// !! buf size
+#ifdef _WIN32
+	wchar_t wbuf[LN_path + 1];
+	struct _stat st;
+#else
 	struct stat st;
+#endif
 
 	p = s;
 	if(*p == '/') {
@@ -125,13 +139,25 @@ bool mole_dir(const char *s)
 			buf[p - s] = '\0';
 			++p;
 		}
+#ifdef _WIN32
+		if(check_unc_root(buf) || strlen(buf) <= 2) {
+			continue;
+		}
+		utf8_to_wchar(buf, wbuf, LN_path);
+		if(_wstat(wbuf, &st) == 0) {
+#else
 		if(stat(buf, &st) == 0) {
+#endif
 			if((st.st_mode & S_IFMT) == S_IFDIR) {
 				continue;
 			}
 			return FALSE;
 		}
+#ifdef _WIN32
+		if(_wmkdir(wbuf) < 0) {
+#else
 		if(mkdir(buf, 0777) < 0) {
+#endif
 			return FALSE;
 		}
 	}
@@ -139,7 +165,7 @@ bool mole_dir(const char *s)
 }
 
 /*
-  strstr, mkdir ¤Ê¤É¤¬¤Ê¤¤´Ä¶­¤Ï¤³¤³¤Ë¤½¤Î¥³¡¼¥É¤òÄÉ²Ã
+  strstr, mkdir ãªã©ãŒãªã„ç’°å¢ƒã¯ã“ã“ã«ãã®ã‚³ãƒ¼ãƒ‰ã‚’è¿½åŠ 
 */
 
 #ifndef	HAVE_FLOCK
@@ -184,7 +210,7 @@ int flock(int fd, int op)
 
 #endif
 
-#ifndef	HAVE_STRSEP
+#if !defined(HAVE_STRSEP) || defined(_WIN32)
 char *strsep(char **stringp, const char *delim)
 {
 	char *p;
@@ -207,10 +233,171 @@ char *strsep(char **stringp, const char *delim)
 
 #endif
 
-#ifndef	HAVE_REALPATH
+#if !defined(HAVE_REALPATH) || defined(_WIN32)
 void realpath(const char *cp, char *s)
 {
 	strcpy(s, cp);
 	reg_pf(NULL, s, TRUE);
+}
+#endif
+
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+
+int access_win(const char *filename, int mode)
+{
+	wchar_t wfilename[LN_path + 1];
+	utf8_to_wchar(filename, wfilename, LN_path);
+	return _waccess(wfilename, mode);
+}
+
+FILE *fopen_win(const char *filename, char *mode)
+{
+	wchar_t wfilename[LN_path + 1], wmode[4 + 1];
+	utf8_to_wchar(filename, wfilename, LN_path);
+	utf8_to_wchar(mode, wmode, 4);
+	return _wfopen(wfilename, wmode);
+}
+
+int chdir_win(const char *path)
+{
+	wchar_t wpath[LN_path + 1];
+	utf8_to_wchar(path, wpath, LN_path);
+	return _wchdir(wpath);
+}
+
+int unlink_win(const char *path)
+{
+	wchar_t wpath[LN_path + 1];
+	utf8_to_wchar(path, wpath, LN_path);
+	return _wunlink(wpath);
+}
+
+int mkdir_win(const char *path, int mode)
+{
+	wchar_t wpath[LN_path + 1];
+	utf8_to_wchar(path, wpath, LN_path);
+	return _wmkdir(wpath);
+}
+
+int rmdir_win(const char *path)
+{
+	wchar_t wpath[LN_path + 1];
+	utf8_to_wchar(path, wpath, LN_path);
+	return _wrmdir(wpath);
+}
+
+void change_dir_char(char *dir)
+{
+	while(*dir != '\0') {
+		if(*dir == '\\') {
+			*dir = '/';
+		}
+		dir++;
+	}
+}
+
+int wchar_to_utf8(const wchar_t *src, char *dst, int len)
+{
+	return WideCharToMultiByte(CP_UTF8, 0, src, -1, dst, len, NULL, NULL);
+}
+
+int utf8_to_wchar(const char *src, wchar_t *dst, int len)
+{
+	return MultiByteToWideChar(CP_UTF8, 0, src, -1, dst, len);
+}
+
+void getcwd_win(char *path, int len)
+{
+	wchar_t *wpath;
+
+	if(wpath = (wchar_t *)malloc(len * sizeof(wchar_t))) {
+		GetCurrentDirectory(len, wpath);
+		wchar_to_utf8(wpath, path, len);
+		change_dir_char(path);
+		free(wpath);
+	}
+}
+
+void get_home_dir(char *path, int len)
+{
+	wchar_t *wpath;
+
+	if(wpath = (wchar_t *)malloc(len * sizeof(wchar_t))) {
+		ExpandEnvironmentStrings(L"%USERPROFILE%", wpath, len);
+		wchar_to_utf8(wpath, path, len);
+		change_dir_char(path);
+		free(wpath);
+	}
+}
+
+void get_exe_dir(char *path, int len)
+{
+	wchar_t *wpath;
+
+	if(wpath = (wchar_t *)malloc(len * sizeof(wchar_t))) {
+		wchar_t *wpt;
+		GetModuleFileName(NULL, wpath, len);
+		if(wpt = wcsrchr(wpath, L'\\')) {
+			*wpt = L'\0';
+		}
+		wchar_to_utf8(wpath, path, len);
+		change_dir_char(path);
+		free(wpath);
+	}
+}
+
+static char *current_dir[26];
+void set_current_dir(int drive, char *path)
+{
+	if(drive >= 0 && drive < 26) {
+		if(current_dir[drive] != NULL) {
+			free(current_dir[drive]);
+		}
+		change_dir_char(path);
+		current_dir[drive] = _strdup(path);
+	}
+}
+
+void get_current_dir(int drive, char *path)
+{
+	if(drive >= 0 && drive < 26) {
+		if(current_dir[drive] != NULL) {
+			strcpy(path, current_dir[drive]);
+		}
+	}
+}
+
+int check_unc_root(const char *path)
+{
+	int count = 0;
+
+	if(*path != '/' || *(path + 1) != '/') {
+		return FALSE;
+	}
+	path += 2;
+	while(*path != '\0') {
+		if(*path == '/' && *(path + 1) != '\0') {
+			count++;
+		}
+		path++;
+	}
+	return (count < 2);
+}
+
+#endif
+
+#ifdef _WIN32
+#include <stdarg.h>
+void Trace(const char *form , ...)
+{
+	va_list	ap;
+	static char work[1000];
+
+	va_start(ap, form);
+	vsprintf(work, form, ap);
+	va_end(ap);
+	OutputDebugStringA(work);
 }
 #endif

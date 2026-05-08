@@ -17,8 +17,14 @@
 #include "search.h"
 #include "cursor.h"
 #include "sh.h"
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <dirent.h>
+#endif
 #include <ctype.h>
+#include "../lib/term.h"
+#include "../lib/misc.h"
 
 
 /* 新型lineedit処理系 */
@@ -68,7 +74,7 @@ void le_csrleftside(le_t *lep)
 
 void le_csrrightside(le_t *lep)
 {
-	le_setlx(lep, strlen(lep->buf));
+	le_setlx(lep, (int)strlen(lep->buf));
 }
 
 void le_csrleft(le_t *lep)
@@ -87,24 +93,23 @@ void le_csrright(le_t *lep)
 
 
 
-void le_edit(le_t *lep, int ch, int cm)
+void le_edit(le_t *lep, unsigned long ch, int cm)
 {
-	int i;
 	int strlength;
-	void *p;
+	char *p;
 
-	strlength = strlen(lep->buf);
+	strlength = (int)strlen(lep->buf);
 	if(lep->lx > strlength) {
 	 	lep->lx = strlength;
 	}
 
 	switch(cm) {
-	case BACKSPACE:
+	case EDIT_BACKSPACE:
 		if(lep->lx <= 0) {
 			break;
 		}
 		le_csrleft(lep);
-	case DELETE:
+	case EDIT_DELETE:
 		if(lep->lx < strlength) {
 			p = lep->buf + lep->lx;
 			int w = kanji_countbuf(&lep->buf[lep->lx]);
@@ -169,11 +174,11 @@ size_t le_regbuf(const char *s, char *t, char *ac)
 			s++;
 		} else if(iscnt(*s)) {
 			if(ac != NULL) {
-				ac[n] = sysinfo.c_ctrl;
+				ac[n] = (char)sysinfo.c_ctrl;
 			}
 			t[n++] = '^';
 			if(ac != NULL) {
-				ac[n] = sysinfo.c_ctrl;
+				ac[n] = (char)sysinfo.c_ctrl;
 			}
 			t[n++] = *s + '@';
 			s++;
@@ -183,7 +188,7 @@ size_t le_regbuf(const char *s, char *t, char *ac)
 			if(is_zen_space(s)) {
 				memcpy(&t[n], sysinfo.zenspacechar, width);
 				if(ac != NULL) {
-					ac[n] = sysinfo.c_zenspace;
+					ac[n] = (char)sysinfo.c_zenspace;
 				}
 			} else {
 				memcpy(&t[n], s, width);
@@ -215,7 +220,7 @@ void legets_hist(le_t *lep, int hn, HistoryData **hi)
 	}
 }
 
-bool legets_histprev(le_t *lep, int hn, HistoryData **hi)
+int legets_histprev(le_t *lep, int hn, HistoryData **hi)
 {
 	char path[LN_path + 1];
 
@@ -248,7 +253,7 @@ bool legets_histprev(le_t *lep, int hn, HistoryData **hi)
 	return TRUE;
 }
 
-bool legets_histnext(le_t *lep, int hn, HistoryData **hi)
+int legets_histnext(le_t *lep, int hn, HistoryData **hi)
 {
 	if(hn == -1 || *hi == NULL || (*hi)->next == NULL) {
 		return FALSE;
@@ -269,7 +274,7 @@ dspfmt_t *dspreg_legets(void *vp, int a, int sizex, int sizey)
 	dfpb = dfp = dsp_fmtinit((char *)vp, NULL);
 	dfp->col = sysinfo.c_frame;
 
-	n = le_regbuf(legets_lep->buf, buf, NULL);
+	n = (int)le_regbuf(legets_lep->buf, buf, NULL);
 	dfp = dsp_fmtinit(buf + legets_lep->sx, dfp);
 
 	return dfpb;
@@ -298,17 +303,60 @@ void clear_file_list(flist_t *flp)
 
 void get_file_list(flist_t *flp, char *path, char *header)
 {
+#ifdef _WIN32
+	HANDLE h;
+	WIN32_FIND_DATA fd;
+	wchar_t wpath[LN_path + 1];
+	int unc_root;
+#else
 	DIR *dir;
 	struct dirent *entry;
-	fitem_t *fitem, *next;
 	struct stat file_stat;
+#endif
 	char name[LN_path + 1];
-	int header_length = strlen(header);
-	int length = strlen(path);
+	fitem_t *fitem, *next;
+	int header_length = (int)strlen(header);
+	int length = (int)strlen(path);
 
+	fitem = NULL;
 	flp->fitem = NULL;
 	flp->n = 0;
-
+#ifdef _WIN32
+	unc_root = check_unc_root(path);
+	utf8_to_wchar(path, wpath, LN_path);
+	lstrcat(wpath, L"/*.*");
+	h = FindFirstFile(wpath, &fd);
+	if(h == INVALID_HANDLE_VALUE) {
+		return;
+	}
+	start_mask_reg();
+	do {
+		if(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+			continue;
+		}
+		wchar_to_utf8(fd.cFileName, name, LN_path);
+		if(header_length > 0 && _strnicmp(name, header, header_length)) {
+			continue;
+		}
+		if(unc_root && !strcmp(name, "..")) {
+			continue;
+		}
+		if(check_use_ext(name, path)) {
+			next = (fitem_t *)mem_alloc(sizeof(fitem_t));
+			next->next = NULL;
+			next->fn = _strdup(name);
+			if(flp->fitem == NULL) {
+				flp->fitem = next;
+			} else {
+				fitem->next = next;
+			}
+			fitem = next;
+			++flp->n;
+		}
+	} while(FindNextFile(h, &fd));
+	end_mask_reg();
+	FindClose(h);
+#else
 	dir = opendir(path);
 	if(dir == NULL) {
 		return;
@@ -344,6 +392,7 @@ void get_file_list(flist_t *flp, char *path, char *header)
 	}
 	end_mask_reg();
 	closedir(dir);
+#endif
 }
 
 void set_input_string(le_t *le, char *input)
@@ -353,12 +402,42 @@ void set_input_string(le_t *le, char *input)
 	le->cx = 0;
 	le->lx = 0;
 	le->l_sx = 0;
-	le_setlx(le, strlen(input));
+	le_setlx(le, (int)strlen(input));
+}
+
+void correct_path(char *path, const char *current_path)
+{
+#ifdef _WIN32
+	change_dir_char(path);
+	if(*(path + 1) != ':' && !(*path == '/' && *(path + 1) == '/')) {
+#else
+	if(*path != '/') {
+#endif
+		char temp[LN_path + 1];
+		if(*path == '.' && *(path + 1) == '/') {
+			strcpy(temp, path + 2);
+		} else {
+			strcpy(temp, path);
+		}
+#ifdef _WIN32
+		if(*path == '/') {
+			path[0] = current_path[0];
+			path[1] = current_path[1];
+			path[2] = '\0';
+		} else {
+#endif
+			strcpy(path, current_path);
+			strcat(path, "/");
+#ifdef _WIN32
+		}
+#endif
+		strcat(path, temp);
+	}
 }
 
 extern char vertical_line_char[];
 
-int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
+int legets_gets(const char *msg, char *s, int dsize, int size, int hn, int py)
 {
 	dspreg_t *drp[4];
 	le_t le;
@@ -377,6 +456,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 	legets_lep = &le;
 	OnMessage_Flag = TRUE;
 
+	fitem = NULL;
 	strcpy(title, msg);
 	path[0] = '\0';
 	input[0] = '\0';
@@ -391,6 +471,11 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 				strcpy(path, edbuf[CurrentFileNo].path);
 				if((pt = strrchr(path, '/')) != NULL) {
 					*pt = '\0';
+#ifdef _WIN32
+					if(strlen(path) == 2) {
+						*pt = '/'; *(pt + 1) = '\0';
+					}
+#endif
 				}
 			}
 			get_file_list(&fl, path, input);
@@ -420,7 +505,19 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 		}
 	} else {
 		cx = 0;
-		cy = dspall.sizey - 4;
+		if(hn == historyOpen) {
+			cy = term_starty();
+			if(cy >= dspall.sizey - 4) {
+				cy = dspall.sizey - 4;
+			}
+		} else if(py!= -1) {
+			cy = py;
+			if(cy >= term_sizey() - 2) {
+				cy = term_sizey() - 6;
+			}
+		} else {
+			cy = 1;
+		}
 	}
 	if(hn == historyMask) {
 		cy = 1;
@@ -485,7 +582,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 	le.lx = 0;
 	le.l_sx = 0;
 	if(hn != historyShell) {
-		le_setlx(&le, strlen(s));
+		le_setlx(&le, (int)strlen(s));
 	}
 
 	CrtDrawAll();
@@ -549,10 +646,10 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 				get_file_list(&fl, path, input);
 				fitem = fl.fitem;
 			}
-			le_edit(&le, ' ', BACKSPACE);
+			le_edit(&le, ' ', EDIT_BACKSPACE);
 			continue;
 		case KF_SysDeletechar:
-			le_edit(&le, ' ', DELETE);
+			le_edit(&le, ' ', EDIT_DELETE);
 			continue;
 		case KF_SysCntrlInput:
 			putDoubleKey(CNTRL('P'));
@@ -560,7 +657,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 			term_locate(cy, le.dx + le.cx);
 			key = term_inkey();
 			delDoubleKey();
-			le_edit(&le, key, NONE);
+			le_edit(&le, key, EDIT_NONE);
 			continue;
 		case KF_SysOptionMenu:
 			if(hn == historySearch) {
@@ -582,7 +679,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 							le.cx = 0;
 							le.lx = 0;
 							le.l_sx = 0;
-							le_setlx(&le, strlen(fitem->fn));
+							le_setlx(&le, (int)strlen(fitem->fn));
 							fitem = fitem->next;
 							if(fitem == NULL) {
 								fitem = fl.fitem;
@@ -619,7 +716,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 						}
 					}
 					input[input_length] = '\0';
-					le_edit(&le, code, NONE);
+					le_edit(&le, code, EDIT_NONE);
 					if(hn == historyOpen) {
 						set_input_string(&le, input);
 						clear_file_list(&fl);
@@ -633,14 +730,7 @@ int legets_gets(const char *msg, char *s, int dsize, int size, int hn)
 		break;
 	}
 	if(hn == historyOpen) {
-		if(*s != '/') {
-			char temp[LN_path + 1];
-
-			strcpy(temp, s);
-			strcpy(s, path);
-			strcat(s, "/");
-			strcat(s, temp);
-		}
+		correct_path(s, path);
 		clear_file_list(&fl);
 	}
 	dsp_regfin(drp[0]);
