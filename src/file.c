@@ -304,6 +304,7 @@ int file_change(int n)
 	if(split_mode != splitNone) {
 		csr_setdy(GetRow());
 	}
+	set_split_screen();
 	return TRUE;
 }
 

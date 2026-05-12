@@ -680,6 +680,26 @@ void system_msg(const char *buffer)
 	term_color_normal();
 }
 
+void set_split_screen()
+{
+	if(split_mode == splitHorizon) {
+		if(CurrentFileNo == split_file_no[splitUpper]) {
+			term_set_split(split_mode, 0, 1, term_sizex(), split_size[splitDataHorizon][splitUpper]);
+		} else {
+			term_set_split(split_mode, 0, split_size[splitDataHorizon][splitUpper] + 2, term_sizex(), term_sizey());
+		}
+	} else if(split_mode == splitVertical) {
+		if(CurrentFileNo == split_file_no[splitLeft]) {
+			term_set_split(split_mode, 0, 1, split_size[splitDataVertical][splitUpper], term_sizey());
+		} else {
+			term_set_split(split_mode, split_size[splitDataVertical][splitUpper], 1, term_sizex(), term_sizey());
+		}
+	} else {
+		term_set_split(0, 0, 0, 0, 0);
+	}
+}
+
+
 int get_split_start(int split)
 {
 	return split_start[(split == splitHorizon) ? splitDataHorizon : splitDataVertical];
@@ -771,7 +791,9 @@ SHELL void op_file_splitmove()
 				}
 				break;
 			}
+			set_split_screen();
 		}
+		set_split_screen();
 		csr_setdy(GetRow());
 		system_msg("");
 	}
@@ -811,6 +833,7 @@ SHELL void op_file_split()
 		}
 		csr_lenew();
 		csr_setdy(GetRow());
+		set_split_screen();
 		system_msg("");
 	}
 }
