@@ -143,6 +143,13 @@ static void term_all_flush();
 
 static int exit_failed = FALSE;
 static char term_buf[TERMCAPSIZE + 1];
+static int split_flag;
+static int split_flush_flag;
+static int split_sx, split_sy;
+static int split_ex, split_ey;
+#ifdef _WIN32
+static int conhost_flag;
+#endif
 
 #ifndef TIOCSTI
 static unsigned char ungetbuf[16];
@@ -391,8 +398,8 @@ void term_reinit()
 #ifdef _WIN32
 	CONSOLE_SCREEN_BUFFER_INFO info;
 	GetConsoleScreenBufferInfo(term.handle_out, &info);
-	sizex = info.srWindow.Bottom - info.srWindow.Top + 1;
-	sizey = info.srWindow.Right - info.srWindow.Left + 1;
+	sizex = info.srWindow.Right - info.srWindow.Left + 1;
+	sizey = info.srWindow.Bottom - info.srWindow.Top + 1;
 #else
 	if(tgetent(term_buf, term.name) <= 0) {
 		sizey = 24;
@@ -542,6 +549,8 @@ int term_starty()
 void term_init()
 {
 #ifdef _WIN32
+	char title[_MAX_PATH];
+
 	CONSOLE_SCREEN_BUFFER_INFO info;
 
 	term.cp_in = GetConsoleCP();
@@ -555,6 +564,11 @@ void term_init()
 	term.handle_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	GetConsoleMode(term.handle_out, &term.mode_out);
 	SetConsoleMode(term.handle_out, term.mode_out | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+	// 判定方法は暫定
+	GetConsoleOriginalTitleA(title, _MAX_PATH);
+	if(strstr(title, "conhost.exe") != NULL) {
+		conhost_flag = TRUE;
+	}
 
 	term.fp_tty = stdout;
 
@@ -973,6 +987,11 @@ void term_locate(int y, int x)
 void term_clrtoe(int ac)
 {
 	term_scr_clr(term.scr[term.y], term.attr[term.y], term.x, ac);
+#ifdef _WIN32
+	if(ac & AC_under) {
+		term.attr[term.y][term.x] |= AC_start;
+	}
+#endif
 }
 
 static int nbytes(int c)
@@ -1379,10 +1398,21 @@ void term_set_ambiguous(int mode)
 	term.ambiguous = mode;
 }
 
+void term_set_split(int flag, int sx, int sy, int ex, int ey)
+{
+	split_flag = flag;
+	split_flush_flag = TRUE;
+	split_sx = sx;
+	split_sy = sy;
+	split_ex = ex;
+	split_ey = ey;
+}
+
 static void term_all_flush()
 {
 	int i, n;
 	int f, cf;
+	int sf = FALSE;
 
 	unsigned long *p, *p0;
 	color_t *a, *a0;
@@ -1409,7 +1439,11 @@ static void term_all_flush()
 			term_color_flush();
 			term_locate(i, 0);
 			term_locate_flush();
-			term_scroll_dn(term.tq[i]);
+			if(split_flag) {
+				sf = TRUE;
+			} else {
+				term_scroll_dn(term.tq[i]);
+			}
 			while(term.tq[i] > 0) {
 				void *p, *a;
 				p = term.scr0[term.sizey - 1];
@@ -1428,7 +1462,11 @@ static void term_all_flush()
 			term_color_flush();
 			term_locate(i, 0);
 			term_locate_flush();
-			term_scroll_up(0 - term.tq[i]);
+			if(split_flag) {
+				sf = TRUE;
+			} else {
+				term_scroll_up(0 - term.tq[i]);
+			}
 			while(term.tq[i] < 0) {
 				void *p, *a;
 				p = term.scr0[i];
@@ -1440,9 +1478,22 @@ static void term_all_flush()
 				term_scr_clr(term.scr0[term.sizey - 1], term.attr0[term.sizey - 1], 0, AC_normal);
 				++term.tq[i];
 			}
+		}	
+	}
+	if(sf) {
+		if(split_flush_flag) {
+			term_redraw_box(0, 0, term.sizex, term.sizey);
+			split_flush_flag = FALSE;
+		} else {
+			term_redraw_box(split_sx, split_sy, split_ex, split_ey);
 		}
 	}
 	for(term.y = 0 ; term.y < term.sizey ; ++term.y) {
+#ifdef _WIN32
+		int combine_flag = FALSE;
+		int combine_count = 0;
+		int after_flag = FALSE;
+#endif
 		term.x = 0;
 		cf = FALSE;
 		for(n = term.sizex ; n > 0 ; --n) {
@@ -1487,10 +1538,25 @@ static void term_all_flush()
 				term.x = x;
 				continue;
 			}
-			term_locate_flush();
+#ifdef _WIN32
+			if(!combine_flag) {
+#endif
+				term_locate_flush();
+#ifdef _WIN32
+			}
+			combine_flag = FALSE;
+#endif
 			while(term.x < x) {
 				unsigned long c;
 
+#ifdef _WIN32
+				if(term.x + combine_count >= x && after_flag) {
+					term.x = x;
+				}
+				if(a[term.x] & AC_start) {
+					after_flag = TRUE;
+				}
+#endif
 				term_color(a[term.x]);
 				term_color_flush();
 
@@ -1521,6 +1587,12 @@ static void term_all_flush()
 							++term.x;
 						}
 					}
+#ifdef _WIN32
+					if(c == 0xe38299 || c == 0xe3829a) {
+						combine_flag = TRUE;
+						combine_count += 2;
+					}
+#endif
 				}
 				p0[term.x] = p[term.x];
 				a0[term.x] = a[term.x];
@@ -1529,6 +1601,11 @@ static void term_all_flush()
 			}
 		}
 		if(cf) {
+#ifdef _WIN32
+			if(combine_count > 0 && !conhost_flag) {
+				term.x -= combine_count;
+			}
+#endif
 			term_locate_flush();
 			term_color(AC_normal);
 			term_color_flush();

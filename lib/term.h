@@ -87,9 +87,10 @@ typedef unsigned short color_t;
 #define AC_color(cl)	((cl) & 0x0ff)
 #define AC_attrib(cl)	((cl) & 0xf00)
 
-#define AC_reverse	0x100
-#define AC_under	0x200
-#define AC_bold		0x400
+#define AC_reverse	0x0100
+#define AC_under	0x0200
+#define AC_bold		0x0400
+#define AC_start	0x1000
 
 #define AC_ignore	255
 
@@ -130,5 +131,6 @@ void term_redraw_box(int sx, int sy, int width, int height);
 void term_set_ambiguous(int mode);
 int term_utf8_half_char(const char *p);
 int term_starty();
+void term_set_split(int flag, int sx, int sy, int ex, int ey);
 
 #endif	/* __TERM_H_ */
