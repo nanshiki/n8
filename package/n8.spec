@@ -1,6 +1,6 @@
 Summary: n8 editor
 Name: n8
-Version: 4.1.3
+Version: 4.1.4
 Release: 0
 License: GPLv2
 Packager: Kobayashi Takashi <takapyu@nanshiki.co.jp>
@@ -18,6 +18,7 @@ The key bindings and operations are almost the same as those of VZ Editor for MS
 /usr/local/etc/n8/key.tk
 /usr/local/etc/n8/key.eff
 /usr/local/etc/n8/key.system
+/usr/local/etc/n8/n8keyword
 /usr/local/etc/n8/term.xterm
 /usr/local/etc/n8/term.xterm-256color
 /usr/share/doc/n8/n8.txt
