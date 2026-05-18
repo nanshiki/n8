@@ -54,7 +54,6 @@
 /*-------------------------------------------------------------------
 	Main Command Loop
 -------------------------------------------------------------------*/
-
 void n8_loop(int region)
 {
  	int key;
@@ -149,6 +148,7 @@ int n8_arg(int argc, char *argv[])
 	f = FALSE;
 
 	sysinfo_optset();
+	sysinfo_keyword();
 	for(optcount = 1 ; optcount < argc ; ++optcount) {
 		if(argv[optcount][0] == '-') {
 			switch(argv[optcount][1]) {
@@ -243,9 +243,13 @@ BOOL WINAPI signal_func(DWORD signal)
 #else
 void signal_func(int sig)
 {
-	delete_lock_file();
+	if(sig == SIGWINCH) {
+		term_change_screen();
+	} else {
+		delete_lock_file();
 
-	exit(1);
+		exit(1);
+	}
 }
 #endif
 
@@ -264,6 +268,7 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, signal_func);
 	signal(SIGBUS, signal_func);
 	signal(SIGSEGV, signal_func);
+	signal(SIGWINCH, signal_func);
 #endif
 	term_init();
 	term_start();
@@ -279,7 +284,6 @@ int main(int argc, char *argv[])
 	open_flag = n8_arg(argc, argv);
 	key_set();
 	dir_init();
-	sysinfo_optset();
 
 	udbuf_init();
 	bstack_init();
@@ -349,6 +353,7 @@ void op_misc_redraw()
 {
 	term_reinit();
 	dsp_reinit();
+	crt_reinit();
 	system_guide_reinit();
 	eff_reinit();
 	term_cls();

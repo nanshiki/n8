@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.1.3"
+#define	VER "4.1.4"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -159,6 +159,26 @@ enum {
 	itemMax
 };
 
+enum {
+	itemKeyExt,
+	itemKeyword,
+
+	itemKeyMax
+};
+
+typedef struct _keyword
+{
+	color_t color;
+	sitem_t *sitem[itemKeyMax];
+	struct _keyword *next;
+} keyword_t;
+
+typedef struct _keyword_list
+{
+	keyword_t *keyword;
+	struct _keyword_list *next;
+} keyword_list_t;
+
 typedef struct
 {
 	char nxpath[LN_path];
@@ -208,6 +228,7 @@ typedef struct
 	int systeminfof;
 	int newfilef;
 	int asksavef;
+	int imecontrolf;
 
 	int file_history_count;
 	int dir_history_count;
@@ -215,12 +236,15 @@ typedef struct
 	int framechar;
 	int afterclose;
 	int extlength;
+	int cursor_insert;
+	int cursor_overwrite;
 
 	char systemline[MAXEDITLINE + 1];
 	dspreg_t *sl_drp;
 	char doublekey[8 + 1];
 
 	sitem_t *sitem[itemMax];
+	keyword_t *keyword;
 } sysinfo_t;
 
 enum {
@@ -261,6 +285,7 @@ VAL int split_file_no[splitHalfMax];
 VAL int OnMessage_Flag;
 
 typedef enum {
+	REPLM_none,
 	REPLM_all,
 	REPLM_before,
 	REPLM_after,
@@ -300,6 +325,7 @@ typedef struct
 	le_t le;
 
 	block_t block;
+	keyword_list_t *keyword_list;
 } edbuf_t;
 
 VAL edbuf_t edbuf[MAX_edbuf];
