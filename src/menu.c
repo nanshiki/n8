@@ -343,6 +343,10 @@ int menu_select(menu_t *mnp)
 {
 	int c;
 
+	if(sysinfo.imecontrolf) {
+		term_push_im();
+		term_set_im(FALSE);
+	}
 	for(;;) {
 		dsp_allview();
 		term_csrh();
@@ -387,6 +391,9 @@ int menu_select(menu_t *mnp)
 	}
 	menu_itemfin(mnp);
 	dsp_regfin(mnp->drp);
+	if(sysinfo.imecontrolf) {
+		term_pop_im();
+	}
 	return c;
 }
 
