@@ -286,6 +286,9 @@ int get_keyf(int region)
 		CursorMove();
 	}
 	key1 = term_inkey();
+	if(key1 == KEY_REINIT) {
+		op_misc_redraw();
+	}
 	key2 = -1;
 	if(key1 == 0x7f) {
 		// macOS
@@ -301,6 +304,10 @@ int get_keyf(int region)
 			}
 		}
 	} else {
+		if(sysinfo.imecontrolf) {
+			term_push_im();
+			term_set_im(FALSE);
+		}
 		putDoubleKey(key1);
 		system_guide();
 		if(region == 0) {
@@ -309,6 +316,9 @@ int get_keyf(int region)
 		key2 = term_inkey();
 		delDoubleKey();
 		def = keydef_get(region, key1, key2);
+		if(sysinfo.imecontrolf) {
+			term_pop_im();
+		}
 	}
 	/* 通常の有効なキー */
 	if(def != NULL && def != (void *)-1 && def->kdm == KDM_func) {
@@ -354,6 +364,10 @@ int keysel(const char *s, const char *t)
 
 	system_msg(s);
 
+	if(sysinfo.imecontrolf) {
+		term_push_im();
+		term_set_im(FALSE);
+	}
 	do {
 		c = term_inkey();
 		if((y || n) && (unsigned char)c == 0xef) {
@@ -361,14 +375,18 @@ int keysel(const char *s, const char *t)
 			if((unsigned char)c == 0xbd) {
 				c = term_inkey();
 				if(y && (unsigned char)c == 0x99) {
-					return 'y';
+					c = 'y';
+					break;
 				} else if(n && (unsigned char)c == 0x8e) {
-					return 'n';
+					c = 'n';
+					break;
 				}
 			}
 		}
 	} while(strchr(t, c) == NULL);
-
+	if(sysinfo.imecontrolf) {
+		term_pop_im();
+	}
 	return tolower(c);
 }
 
