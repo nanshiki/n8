@@ -26,6 +26,9 @@
   ExtLength     = 6       # <number>ファイラーの拡張子表示文字数
   CExt          = ".h .c .cpp" # C 編集モードとする拡張子
   CTabStop      = 4            # <number>C 編集モードのタブストップ数
+  CursorInsert    = BlockBlink # 挿入モード時のカーソル形状
+  CursorOverwrite = CaretBlink # 上書モード時のカーソル形状
+  IMEControl    = On      # (on/off)IME 制御
 
 # キーコンフィグ
 #   /usr/local/etc/n8/ などのディレクトリに、
@@ -36,6 +39,9 @@
 !I	key.tk            #editor keybind
 !I	key.system        #system keybind
 !I	key.eff           #filer  keybind
+
+# キーワード色指定
+!I	n8keyword
 
 #オプション設定
 !R	Val
