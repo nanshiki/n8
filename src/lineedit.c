@@ -144,7 +144,7 @@ void le_edit(le_t *lep, unsigned long ch, int cm)
 	}
 }
 
-size_t le_regbuf(const char *s, char *t, char *ac)
+size_t le_regbuf(const char *s, char *t, color_t *ac)
 {
 	int n, a;
 	int width;
@@ -193,7 +193,7 @@ size_t le_regbuf(const char *s, char *t, char *ac)
 			} else {
 				memcpy(&t[n], s, width);
 				if(ac != NULL) {
-					memset(&ac[n], 0, width);
+					memset(&ac[n], 0, width * sizeof(color_t));
 				}
 			}
 			pos += kanji_countdsp(s, -1);

@@ -5,6 +5,6 @@ void le_csrrightside(le_t *lep);
 void le_csrleft(le_t *lep);
 void le_csrright(le_t *lep);
 void le_edit(le_t *lep, unsigned long ch, int cm);
-size_t le_regbuf(const char *s, char *t, char *ac);
+size_t le_regbuf(const char *s, char *t, color_t *ac);
 void correct_path(char *path, const char *current_path);
 int legets_gets(const char *msg, char *s, int dsize, int size, int hn, int y);
