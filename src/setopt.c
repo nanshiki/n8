@@ -49,7 +49,10 @@ enum {
 	optionRetMode,
 	optionAmbiguous,
 	optionTabStop,
-
+	optionIMEControl,
+#ifdef _WIN32
+	optionMouseWheel,
+#endif
 	optionMax
 };
 
@@ -295,11 +298,11 @@ void key_set()
 	}
 }
 
-void clear_string_item(int no)
+void clear_string_item(sitem_t **top)
 {
 	sitem_t *item, *next;
 
-	item = sysinfo.sitem[no];
+	item = *top;
 	while(item != NULL) {
 		next = item->next;
 		if(item->str != NULL) {
@@ -308,7 +311,7 @@ void clear_string_item(int no)
 		free(item);
 		item = next;
 	}
-	sysinfo.sitem[no] = NULL;
+	*top = NULL;
 }
 
 char *get_string_item(int no, int pos)
@@ -341,17 +344,17 @@ int get_string_item_count(int no)
 	return count;
 }
 
-void add_string_item(int no, const char *str)
+void add_string_item(sitem_t **top, const char *str)
 {
 	sitem_t *item, *last;
 
 	if((item = (sitem_t *)malloc(sizeof(sitem_t))) != NULL) {
 		item->str = strdup(str);
 		item->next = NULL;
-		if(sysinfo.sitem[no] == NULL) {
-			sysinfo.sitem[no] = item;
+		if(*top == NULL) {
+			*top = item;
 		} else {
-			last = sysinfo.sitem[no];
+			last = *top;
 			while(last->next != NULL) {
 				last = last->next;
 			}
@@ -360,16 +363,16 @@ void add_string_item(int no, const char *str)
 	}
 }
 
-void set_ext_item(int no, const char *p)
+void set_ext_item(sitem_t **item, const char *p)
 {
-	clear_string_item(no);
+	clear_string_item(item);
 	if(p != NULL) {
 		char str[MAXLINESTR + 1];
 		int length = 1;
 
 		str[0] = '*';
 		if(sysinfo.maskregf) {
-			add_string_item(no, p);
+			add_string_item(item, p);
 		} else {
 			while(*p != '\0') {
 				if(*p == ' ' || *(p + 1) == '\0') {
@@ -379,9 +382,9 @@ void set_ext_item(int no, const char *p)
 					if(length > 1) {
 						str[length] = '\0';
 						if(str[1] == '.') {
-							add_string_item(no, str);
+							add_string_item(item, str);
 						} else {
-							add_string_item(no, &str[1]);
+							add_string_item(item, &str[1]);
 						}
 						length = 1;
 					}
@@ -439,14 +442,14 @@ void end_mask_reg()
 	}
 }
 
-int check_cmode_ext(const char *filename)
+int check_file_ext(const char *filename, sitem_t **top)
 {
 	int flag = FALSE;
-	sitem_t *item;
+	sitem_t *item = *top;
 	const char *name = strrchr(filename, '/');
 	if(name != NULL) {
 		name++;
-		if((item = sysinfo.sitem[itemCext]) != NULL) {
+		if(item != NULL) {
 			if(sysinfo.maskregf) {
 				regex_t reg_cext;
 				if(!regcomp(&reg_cext, item->str, REG_EXTENDED | REG_NOSUB | REG_NEWLINE)) {
@@ -456,7 +459,6 @@ int check_cmode_ext(const char *filename)
 					regfree(&reg_cext);
 				}
 			} else {
-				item = item->next;
 				while(item != NULL) {
 					if(wildcard(name, item->str)) {
 						flag = TRUE;
@@ -468,6 +470,42 @@ int check_cmode_ext(const char *filename)
 		}
 	}
 	return flag;
+}
+
+void set_keyword_ext(const char *filename)
+{
+	if(edbuf[CurrentFileNo].keyword_list != NULL) {
+		keyword_list_t *key_list, *next;
+		key_list = edbuf[CurrentFileNo].keyword_list;
+		while(key_list != NULL) {
+			next = key_list->next;
+			free(key_list);
+			key_list = next;
+		}
+		edbuf[CurrentFileNo].keyword_list = NULL;
+	}
+	if(sysinfo.keyword != NULL) {
+		keyword_t *key = sysinfo.keyword;
+		while(key != NULL) {
+			if(check_file_ext(filename, &key->sitem[itemKeyExt])) {
+				keyword_list_t *key_list;
+				if((key_list = (keyword_list_t *)malloc(sizeof(keyword_list_t))) != NULL) {
+					key_list->next = NULL;
+					key_list->keyword = key;
+					if(edbuf[CurrentFileNo].keyword_list == NULL) {
+						edbuf[CurrentFileNo].keyword_list = key_list;
+					} else {
+						keyword_list_t *last = edbuf[CurrentFileNo].keyword_list;
+						while(last->next != NULL) {
+							last = last->next;
+						}
+						last->next = key_list;
+					}
+				}
+			}
+			key = key->next;
+		}
+	}
 }
 
 int check_use_ext(const char *name, const char *path)
@@ -520,7 +558,7 @@ void dir_init()
 	char name[3];
 	int no;
 #endif
-	clear_string_item(itemDir);
+	clear_string_item(&sysinfo.sitem[itemDir]);
 #ifdef _WIN32
 	GetCurrentDirectory(LN_path, current);
 	drive = GetLogicalDrives();
@@ -530,7 +568,7 @@ void dir_init()
 		wchar_t wpath[LN_path + 1];
 		if(drive & bit) {
 			name[0] = no + 'A'; name[1] = ':'; name[2] = 0;
-			add_string_item(itemDir, name);
+			add_string_item(&sysinfo.sitem[itemDir], name);
 			if(name[0] == toupper(current[0])) {
 				wcscpy(wpath, current);
 			} else {
@@ -545,7 +583,7 @@ void dir_init()
 	}
 	SetCurrentDirectory(current);
 #else
-	add_string_item(itemDir, "~ <home dir>");
+	add_string_item(&sysinfo.sitem[itemDir], "~ <home dir>");
 #endif
 	if((p = getenv("N8_PATH")) != NULL) {
 		char str[MAXLINESTR + 1];
@@ -563,7 +601,7 @@ void dir_init()
 #ifdef _WIN32
 					change_dir_char(str);
 #endif
-					add_string_item(itemDir, str);
+					add_string_item(&sysinfo.sitem[itemDir], str);
 					length = 0;
 				}
 			} else if(length < MAXLINESTR) {
@@ -576,7 +614,7 @@ void dir_init()
 #ifdef _WIN32
 			change_dir_char(str);
 #endif
-			add_string_item(itemDir, str);
+			add_string_item(&sysinfo.sitem[itemDir], str);
 		}
 	}
 }
@@ -605,58 +643,169 @@ void sort_init()
 	}
 }
 
+void set_keyword_item(sitem_t **item, char *p)
+{
+	if(p != NULL) {
+		char str[MAXLINESTR + 1];
+		int length = 0;
+
+		while(*p != '\0') {
+			if(*p == ' ' || *(p + 1) == '\0') {
+				if(*(p + 1) == '\0') {
+					str[length++] = *p;
+				}
+				if(length > 0) {
+					str[length] = '\0';
+					add_string_item(item, str);
+					length = 0;
+				}
+			} else if(length < MAXLINESTR) {
+				str[length++] = *p;
+			}
+			p++;
+		}
+	}
+}
+
+void keyword_add(char *ext, char *word, color_t color)
+{
+	keyword_t *key, *last;
+
+	if((key = (keyword_t *)malloc(sizeof(keyword_t))) != NULL) {
+		key->sitem[itemKeyExt] = NULL;
+		set_ext_item(&key->sitem[itemKeyExt], ext);
+		key->sitem[itemKeyword] = NULL;
+		set_keyword_item(&key->sitem[itemKeyword], word);
+		key->color = color;
+		key->next = NULL;
+		if(sysinfo.keyword == NULL) {
+			sysinfo.keyword = key;
+		} else {
+			last = sysinfo.keyword;
+			while(last->next != NULL) {
+				last = last->next;
+			}
+			last->next = key;
+		}
+	}
+}
+
+void sysinfo_keyword()
+{
+	char key[MAXLINESTR];
+	char *ext, *word, *str;
+	color_t color;
+	int no;
+
+	no = 1;
+	while(1) {
+		sprintf(key, "keyext%d", no);
+		ext = hash_get(sysinfo.vp_def, key);
+		if(ext == NULL) {
+			break;
+		}
+		sprintf(key, "keyword%d", no);
+		word = hash_get(sysinfo.vp_def, key);
+		if(word == NULL) {
+			break;
+		}
+		sprintf(key, "col_key%d", no);
+		str = hash_get(sysinfo.vp_def, key);
+		if(str == NULL) {
+			break;
+		}
+		color = term_cftocol(str);
+		keyword_add(ext, word, color);
+		no++;
+	}
+}
+
+int get_cursor_type(char *p)
+{
+	int no = 0;
+	if(p != NULL) {
+		if(isdigit(*p)) {
+			no = atoi(p);
+			if(no < 0 || no > 6) {
+				no = 0;
+			}
+		} else if(!strcasecmp(p, "default")) {
+			no = 0;
+		} else if(!strcasecmp(p, "blockblink")) {
+			no = 1;
+		} else if(!strcasecmp(p, "block")) {
+			no = 2;
+		} else if(!strcasecmp(p, "underlineblink")) {
+			no = 3;
+		} else if(!strcasecmp(p, "underline")) {
+			no = 4;
+		} else if(!strcasecmp(p, "caretblink")) {
+			no = 5;
+		} else if(!strcasecmp(p, "caret")) {
+			no = 6;
+		}
+	}
+	return no;
+}
+
 void sysinfo_optset()
 {
 	const char *p;
 	int f;
 
-	p = hash_get(sysinfo.vp_def, "tabcode");
+	p = hash_get(sysinfo.vp_def, "TabCode");
 	if(p == NULL) {
 		sysinfo.tabcode = -1;
 	} else {
 		sysinfo.tabcode = *p;
 	}
 
-	sysinfo.tabstop = hash_get_int(sysinfo.vp_def, "tabstop");
+	sysinfo.tabstop = hash_get_int(sysinfo.vp_def, "TabStop");
 	if(sysinfo.tabstop <= 0) {
 		sysinfo.tabstop = 8;
-		hash_set_int(sysinfo.vp_def, "tabstop", sysinfo.tabstop);
+		hash_set_int(sysinfo.vp_def, "TabStop", sysinfo.tabstop);
 	}
-	sysinfo.cmode_tabstop = hash_get_int(sysinfo.vp_def, "ctabstop");
+	sysinfo.cmode_tabstop = hash_get_int(sysinfo.vp_def, "CTabStop");
 	if(sysinfo.cmode_tabstop <= 0) {
 		sysinfo.cmode_tabstop = 4;
-		hash_set_int(sysinfo.vp_def, "ctabstop", sysinfo.cmode_tabstop);
+		hash_set_int(sysinfo.vp_def, "CTabStop", sysinfo.cmode_tabstop);
 	}
-	sysinfo.extlength = hash_get_int(sysinfo.vp_def, "extlength");
+	sysinfo.extlength = hash_get_int(sysinfo.vp_def, "ExtLength");
 	if(sysinfo.extlength <= 0) {
 		sysinfo.extlength = 4;
-		hash_set_int(sysinfo.vp_def, "extlength", sysinfo.extlength);
+		hash_set_int(sysinfo.vp_def, "ExtLength", sysinfo.extlength);
 	}
+	sysinfo.cursor_insert = get_cursor_type(hash_get(sysinfo.vp_def, "CursorInsert"));
+	sysinfo.cursor_overwrite = get_cursor_type(hash_get(sysinfo.vp_def, "CursorOverwrite"));
 
 	sysinfo.file_history_count = hash_get_int(sysinfo.vp_def, "FileHistoryCount");
 	sysinfo.dir_history_count = hash_get_int(sysinfo.vp_def, "DirHistoryCount");
 
 	sysinfo.japanesef   = hash_istrue(sysinfo.vp_def, "Japanese");
-	sysinfo.crmarkf     = hash_istrue(sysinfo.vp_def, "crmark");
-	sysinfo.tabmarkf    = hash_istrue(sysinfo.vp_def, "tabmark");
-	sysinfo.backupf     = hash_istrue(sysinfo.vp_def, "backup");
-	sysinfo.autoindentf = hash_istrue(sysinfo.vp_def, "autoindent");
-	sysinfo.nocasef     = hash_istrue(sysinfo.vp_def, "nocase");
-	sysinfo.searchregf  = hash_istrue(sysinfo.vp_def, "searchreg");
-	sysinfo.searchwordf = hash_istrue(sysinfo.vp_def, "searchword");
-	sysinfo.overwritef  = hash_istrue(sysinfo.vp_def, "overwrite");
-	sysinfo.numberf     = hash_istrue(sysinfo.vp_def, "number");
-	sysinfo.pastemovef  = hash_istrue(sysinfo.vp_def, "pastemove");
-	sysinfo.underlinef  = hash_istrue(sysinfo.vp_def, "underline");
-	sysinfo.nfdf        = hash_istrue(sysinfo.vp_def, "nfd");
-	sysinfo.maskregf    = hash_istrue(sysinfo.vp_def, "maskreg");
-	sysinfo.eoff        = hash_istrue(sysinfo.vp_def, "eof");
-	sysinfo.zenspacef   = hash_istrue(sysinfo.vp_def, "zenspace");
-	sysinfo.systeminfof = hash_istrue(sysinfo.vp_def, "systeminfo");
-	sysinfo.newfilef    = hash_istrue(sysinfo.vp_def, "newfile");
-	sysinfo.asksavef    = hash_istrue(sysinfo.vp_def, "asksave");
+	sysinfo.crmarkf     = hash_istrue(sysinfo.vp_def, "CrMark");
+	sysinfo.tabmarkf    = hash_istrue(sysinfo.vp_def, "TabMark");
+	sysinfo.backupf     = hash_istrue(sysinfo.vp_def, "Backup");
+	sysinfo.autoindentf = hash_istrue(sysinfo.vp_def, "AutoIndent");
+	sysinfo.nocasef     = hash_istrue(sysinfo.vp_def, "NoCase");
+	sysinfo.searchregf  = hash_istrue(sysinfo.vp_def, "SearchReg");
+	sysinfo.searchwordf = hash_istrue(sysinfo.vp_def, "SearchWord");
+	sysinfo.overwritef  = hash_istrue(sysinfo.vp_def, "Overwrite");
+	sysinfo.numberf     = hash_istrue(sysinfo.vp_def, "Number");
+	sysinfo.pastemovef  = hash_istrue(sysinfo.vp_def, "PasteMove");
+	sysinfo.underlinef  = hash_istrue(sysinfo.vp_def, "Underline");
+	sysinfo.nfdf        = hash_istrue(sysinfo.vp_def, "NFD");
+	sysinfo.maskregf    = hash_istrue(sysinfo.vp_def, "MaskReg");
+	sysinfo.eoff        = hash_istrue(sysinfo.vp_def, "EOF");
+	sysinfo.zenspacef   = hash_istrue(sysinfo.vp_def, "ZenSpace");
+	sysinfo.systeminfof = hash_istrue(sysinfo.vp_def, "SystemInfo");
+	sysinfo.newfilef    = hash_istrue(sysinfo.vp_def, "Newfile");
+	sysinfo.asksavef    = hash_istrue(sysinfo.vp_def, "AskSave");
+	sysinfo.imecontrolf  = hash_istrue(sysinfo.vp_def, "IMEControl");
+#ifdef _WIN32
+	term_enable_mouse(hash_istrue(sysinfo.vp_def, "MouseWheel"));
+#endif
 	sysinfo.afterclose = afterCloseDefault;
-	if((p = hash_get(sysinfo.vp_def, "afterclose")) != NULL) {
+	if((p = hash_get(sysinfo.vp_def, "AfterClose")) != NULL) {
 		if(!strcasecmp(p, "input")) {
 			sysinfo.afterclose = afterCloseInput;
 		} else if(!strcasecmp(p, "filer")) {
@@ -665,14 +814,14 @@ void sysinfo_optset()
 			sysinfo.afterclose = afterCloseQuit;
 		}
 	}
-	if((p = hash_get(sysinfo.vp_def, "zenspacechar")) != NULL) {
+	if((p = hash_get(sysinfo.vp_def, "ZenSpaceChar")) != NULL) {
 		int len = kanji_countbuf(p);
 		if(len == 3) {
 			memcpy(sysinfo.zenspacechar, p, len);
 		}
 	}
 	sysinfo.framechar = frameCharNothing;
-	if((p = hash_get(sysinfo.vp_def, "framechar")) != NULL) {
+	if((p = hash_get(sysinfo.vp_def, "FrameChar")) != NULL) {
 		if(!strcasecmp(p, "ascii")) {
 			sysinfo.framechar = frameCharASCII;
 		} else if(!strcasecmp(p, "frame")) {
@@ -682,7 +831,7 @@ void sysinfo_optset()
 		}
 	}
 	sysinfo.ambiguous = AM_FIX1;
-	if((p = hash_get(sysinfo.vp_def, "ambiguous")) != NULL) {
+	if((p = hash_get(sysinfo.vp_def, "Ambiguous")) != NULL) {
 		if(*p == '2') {
 			sysinfo.ambiguous = AM_FIX2;
 		} else if(toupper(*p) == 'E') {
@@ -697,7 +846,6 @@ void sysinfo_optset()
 	} else {
 		term_color_disable();
 	}
-
 
 	sysinfo.c_block     = term_cftocol(hash_get(sysinfo.vp_def, "col_block"));
 	sysinfo.c_linenum   = term_cftocol(hash_get(sysinfo.vp_def, "col_linenum"));
@@ -719,15 +867,19 @@ void sysinfo_optset()
 	sysinfo.c_eff_normc = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normc"));
 	sysinfo.c_eff_normn = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normn"));
 
-	set_ext_item(itemHide, hash_get(sysinfo.vp_def, "HideExt"));
-	set_ext_item(itemCext, hash_get(sysinfo.vp_def, "CExt"));
+	set_ext_item(&sysinfo.sitem[itemHide], hash_get(sysinfo.vp_def, "HideExt"));
+	set_ext_item(&sysinfo.sitem[itemCext], hash_get(sysinfo.vp_def, "CExt"));
 #ifdef _WIN32
 	if(!get_regexp_enable()) {
 		sysinfo.searchregf = FALSE;
 		sysinfo.maskregf = FALSE;
 	}
 #endif
-
+	if(sysinfo.overwritef) {
+		term_set_cursor_type(sysinfo.cursor_overwrite);
+	} else {
+		term_set_cursor_type(sysinfo.cursor_insert);
+	}
 }
 
 void opt_set(const char *s, const char *t)
@@ -784,6 +936,8 @@ void opt_default()
 #ifdef _WIN32
 	hash_set(sysinfo.vp_def, "FrameChar", "frame");
 	hash_set(sysinfo.vp_def, "HideExt", ".obj .bak .exe .dll");
+	hash_set(sysinfo.vp_def, "MouseWheel", "on");
+	hash_set(sysinfo.vp_def, "IMEControl", "on");
 #else
 	hash_set(sysinfo.vp_def, "FrameChar", "ascii");
 	hash_set(sysinfo.vp_def, "HideExt", ".o .bak");
@@ -791,6 +945,9 @@ void opt_default()
 	hash_set_int(sysinfo.vp_def, "FileHistoryCount", DEFAULT_FILE_HISTORY_COUNT);
 	hash_set_int(sysinfo.vp_def, "DirHistoryCount", DEFAULT_DIR_HISTORY_COUNT);
 	hash_set(sysinfo.vp_def, "Sort", "filename");
+
+	hash_set(sysinfo.vp_def, "CursorInsert", "BlockBlink");
+	hash_set(sysinfo.vp_def, "CursorOverwrite", "UnderlineBlink");
 
 	hash_set(sysinfo.vp_def, "col_block", "R");
 	hash_set(sysinfo.vp_def, "col_linenum", "4");
@@ -830,7 +987,13 @@ void search_option(int x, int y)
 {
 	menu_t menu;
 	int res = 0;
+	int count = optionSearchMax;
 
+#ifdef _WIN32
+	if(!get_regexp_enable()) {
+		count--;
+	}
+#endif
 	menu_iteminit(&menu);
 	menu.title = SEARCH_OPTION_MSG;
 	menu.cy = res;
@@ -839,10 +1002,10 @@ void search_option(int x, int y)
 		menu.drp->x--;
 	}
 	menu.drp->y = y;
-	if(menu.drp->y > dspall.sizey - optionSearchMax - 3) {
-		menu.drp->y = dspall.sizey - optionSearchMax - 3;
+	if(menu.drp->y > dspall.sizey - count - 3) {
+		menu.drp->y = dspall.sizey - count - 3;
 	}
-	menu_itemmake(&menu, search_option_set_proc, optionSearchMax, NULL);
+	menu_itemmake(&menu, search_option_set_proc, count, NULL);
 	res = menu_select(&menu);
 	menu_itemfin(&menu);
 
@@ -909,6 +1072,14 @@ void option_set_proc(int a, mitem_t *mip, void *vp)
 	case optionTabStop:
 		sprintf(mip->str, "%s%-9d", OPT_TAB_STOP_MSG, atoi(hash_get(sysinfo.vp_def, "TabStop")));
 		break;
+	case optionIMEControl:
+		sprintf(mip->str, "%s%-9s", OPT_IME_MSG,  (hash_istrue(sysinfo.vp_def, "imecontrol") ? "ON" : "OFF"));
+		break;
+#ifdef _WIN32
+	case optionMouseWheel:
+		sprintf(mip->str, "%s%-9s", OPT_WHEEL_MSG,  (hash_istrue(sysinfo.vp_def, "mousewheel") ? "ON" : "OFF"));
+		break;
+#endif
 	}
 }
 
@@ -981,6 +1152,14 @@ void SeeOption()
 		case optionTabStop:
 			op_opt_tab();
 			break;
+		case optionIMEControl:
+			opt_set("imecontrol", NULL);
+			break;
+#ifdef _WIN32
+		case optionMouseWheel:
+			opt_set("mousewheel", NULL);
+			break;
+#endif
 		}
 		CrtDrawAll();
 	} while(res == optionKanjiCode || res == optionRetMode || res == optionAmbiguous);
@@ -1292,7 +1471,7 @@ void config_read(char *path)
 			case 'm':
 				if(!strcasecmp(zone_buf, "mask")) {
 					for(i = 0 ; i < name_num ; ++i) {
-						add_string_item(itemMask, name_buf[i]);
+						add_string_item(&sysinfo.sitem[itemMask], name_buf[i]);
 					}
 				}
 				break;
