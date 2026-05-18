@@ -289,6 +289,10 @@ keysdef_t keysdef[]=
 	{"script_switch",				0xFF7E},
 	{"Num_Lock",					0xFF7F},
 
+	{"WHUP",						0xFFF0},
+	{"Wheel_UP",					0xFFF0},
+	{"WHDN",						0xFFF1},
+	{"Whell_Down",					0xFFF1},
 
 	{"KP_Space",					0xFF80},
 	{"KP_Tab",						0xFF89},
