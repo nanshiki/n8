@@ -41,6 +41,7 @@
 #ifndef	__TERM_H_
 #define	__TERM_H_
 
+typedef unsigned short color_t;
 
 void term_init();
 void term_start();
@@ -67,11 +68,9 @@ void term_clrtoe(int ac);
 void term_locate(int y, int x);
 void term_movex(int x);
 
-int term_puts(const char *s, const char *ac);
+int term_puts(const char *s, const color_t *ac);
 void term_putch(int c);
 void term_printf(const char *fmt,...);
-
-typedef unsigned short color_t;
 
 #define AC_normal	0
 
@@ -91,6 +90,7 @@ typedef unsigned short color_t;
 #define AC_under	0x0200
 #define AC_bold		0x0400
 #define AC_start	0x1000
+#define AC_key		0x2000
 
 #define AC_ignore	255
 
@@ -100,6 +100,8 @@ typedef unsigned short color_t;
 #define	AM_MASK		0xff
 
 #define	AM_TERATERM	0x100
+
+#define	KEY_REINIT	0xfff8
 
 void term_color(color_t c);
 void term_color_normal();
@@ -132,5 +134,13 @@ void term_set_ambiguous(int mode);
 int term_utf8_half_char(const char *p);
 int term_starty();
 void term_set_split(int flag, int sx, int sy, int ex, int ey);
+void term_change_screen();
+void term_set_cursor_type(int mode);
+void term_push_im();
+void term_pop_im();
+void term_set_im(int flag);
+#ifdef _WIN32
+void term_enable_mouse(int flag);
+#endif
 
 #endif	/* __TERM_H_ */

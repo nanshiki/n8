@@ -50,6 +50,7 @@
  #include <conio.h>
  #include <io.h>
  #include <fcntl.h>
+ #pragma comment(lib, "imm32.lib")
 #else
  #include <sys/ioctl.h>
 
@@ -147,6 +148,7 @@ static int split_flag;
 static int split_flush_flag;
 static int split_sx, split_sy;
 static int split_ex, split_ey;
+static int change_screen_flag;
 #ifdef _WIN32
 static int conhost_flag;
 #endif
@@ -345,6 +347,61 @@ void term_cursor_on()
 	term_tputs("\033[?25h");
 }
 
+void term_set_cursor_type(int mode)
+{
+	char buff[20];
+
+	sprintf(buff, "\033[%d q", mode);
+	term_tputs(buff);
+}
+
+#ifdef _WIN32
+#ifndef IMC_GETOPENSTATUS
+#define	IMC_GETOPENSTATUS	5
+#endif
+#ifndef IMC_SETOPENSTATUS
+#define	IMC_SETOPENSTATUS	6
+#endif
+int im_status;
+#endif
+
+void term_push_im()
+{
+#ifdef _WIN32
+	HWND h;
+	if((h = ImmGetDefaultIMEWnd(GetForegroundWindow())) != NULL) {
+		im_status = (int)SendMessage(h, WM_IME_CONTROL, IMC_GETOPENSTATUS, 0);
+	}
+#endif
+	term_tputs("\033[<s");
+}
+
+void term_pop_im()
+{
+#ifdef _WIN32
+	HWND h;
+	if((h = ImmGetDefaultIMEWnd(GetForegroundWindow())) != NULL) {
+		SendMessage(h, WM_IME_CONTROL, IMC_SETOPENSTATUS, im_status);
+	}
+#endif
+	term_tputs("\033[<r");
+}
+
+void term_set_im(int flag)
+{
+#ifdef _WIN32
+	HWND h;
+	if((h = ImmGetDefaultIMEWnd(GetForegroundWindow())) != NULL) {
+		SendMessage(h, WM_IME_CONTROL, IMC_SETOPENSTATUS, flag);
+	}
+#endif
+	if(flag) {
+		term_tputs("\033[<1t");
+	} else {
+		term_tputs("\033[<0t");
+	}
+}
+
 void term_scroll(int n)
 {
 	term.tq[term.y] += n;
@@ -491,6 +548,7 @@ void term_stop()	/* atexitされるので基本的には明示的に呼ぶ必要
 	term.fp_tty = stdout;
 #ifdef _WIN32
 	term_tputs("\033[0m");
+	term_set_cursor_type(0);
 	SetConsoleCP(term.cp_in);
 	SetConsoleOutputCP(term.cp_out);
 	SetConsoleMode(term.handle_in, term.mode_in);
@@ -546,10 +604,21 @@ int term_starty()
 	return term.starty;
 }
 
+#ifdef _WIN32
+void term_enable_mouse(int flag)
+{
+	if(flag) {
+		SetConsoleMode(term.handle_in, ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT | ENABLE_EXTENDED_FLAGS);
+	} else {
+		SetConsoleMode(term.handle_in, ENABLE_WINDOW_INPUT);
+	}
+}
+#endif
+
 void term_init()
 {
 #ifdef _WIN32
-	char title[_MAX_PATH];
+	char *env;
 
 	CONSOLE_SCREEN_BUFFER_INFO info;
 
@@ -560,13 +629,11 @@ void term_init()
 
 	term.handle_in = GetStdHandle(STD_INPUT_HANDLE);
 	GetConsoleMode(term.handle_in, &term.mode_in);
-	SetConsoleMode(term.handle_in, ENABLE_WINDOW_INPUT & ~ENABLE_QUICK_EDIT_MODE);
+	SetConsoleMode(term.handle_in, ENABLE_WINDOW_INPUT);
 	term.handle_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	GetConsoleMode(term.handle_out, &term.mode_out);
 	SetConsoleMode(term.handle_out, term.mode_out | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-	// 判定方法は暫定
-	GetConsoleOriginalTitleA(title, _MAX_PATH);
-	if(strstr(title, "conhost.exe") != NULL) {
+	if((env = getenv("SSH_CONNECTION")) != NULL) {
 		conhost_flag = TRUE;
 	}
 
@@ -808,6 +875,20 @@ int term_getch()
 							}
 						}
 					}
+				} else if(in[no].EventType == WINDOW_BUFFER_SIZE_EVENT) {
+					if(keycode_count < KEYCODE_LENGTH) {
+						keycode[keycode_count++] = KEY_REINIT;
+					}
+				} else if(in[no].EventType == MOUSE_EVENT) {
+					if(in[no].Event.MouseEvent.dwEventFlags == MOUSE_WHEELED) {
+						if(keycode_count < KEYCODE_LENGTH) {
+							if((in[no].Event.MouseEvent.dwButtonState >> 16) < 0x8000) {
+								keycode[keycode_count++] = 0xfff0;
+							} else {
+								keycode[keycode_count++] = 0xfff1;
+							}
+						}
+					}
 				}
 			}
 		}
@@ -822,6 +903,10 @@ int term_getch()
 	unsigned char ch;
 	int i;
 
+	if(change_screen_flag) {
+		change_screen_flag = FALSE;
+		return KEY_REINIT;
+	}
 	while((i = read(fileno(term.fp_tty), &ch, sizeof(unsigned char))) < 0 && errno == EINTR) {
 		// 
 	}
@@ -832,11 +917,26 @@ int term_getch()
 #endif
 }
 
+void term_change_screen()
+{
+	change_screen_flag = TRUE;
+}
+
 int term_kbhit(unsigned long usec)
 {
 #ifdef _WIN32
-	return _kbhit() || (keycode_count > 0);
+	INPUT_RECORD in;
+	DWORD count;
+	if(PeekConsoleInput(term.handle_in, &in, 1, &count)) {
+		if(count > 0) {
+			return TRUE;
+		}
+	}
+	return (keycode_count > 0);
 #else
+	if(change_screen_flag) {
+		return TRUE;
+	}
 #ifdef HAVE_SELECT
 	fd_set readfds;
 	struct timeval timeout;
@@ -1120,7 +1220,7 @@ int term_utf8_half_char(const char *p)
 	return term_utf8_half_code(c);
 }
 
-int term_puts(const char *s, const char *ac)
+int term_puts(const char *s, const color_t *ac)
 {
 	int len;
 	int redraw = FALSE;
@@ -1139,7 +1239,11 @@ int term_puts(const char *s, const char *ac)
 		if(len == 1) {
 			term.scr[term.y][term.x] = *s & 0xff;
 			if(ac != NULL && *ac) {
-				term.attr[term.y][term.x] = AC_color(*ac) | AC_attrib(term.cl);
+				if(*ac & AC_key) {
+					term.attr[term.y][term.x] = (term.cl & AC_under) | *ac;
+				} else {
+					term.attr[term.y][term.x] = AC_color(*ac) | AC_attrib(term.cl);
+				}
 			} else {
 				term.attr[term.y][term.x] = term.cl;
 			}
