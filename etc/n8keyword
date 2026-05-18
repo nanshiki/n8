@@ -1,0 +1,8 @@
+# C 言語キーワード設定
+KeyExt1 = ".h .c .cpp"
+Keyword1 = "if else for while do switch case break continue return static extern default goto delete new try catch"
+col_key1 = B
+
+KeyExt2 = ".h .c .cpp"
+Keyword2 = "#include #if #else #elif #ifdef #ifndef #endif #define #undef #pragma #error"
+col_key2 = 6
