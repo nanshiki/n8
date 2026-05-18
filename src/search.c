@@ -264,6 +264,7 @@ void replace()
 	CrtDrawAll();
 	res = keysel_yneq(CHECK_REPLACE_ALL_MSG);
 	if(res == ESCAPE) {
+		edbuf[CurrentFileNo].replm = REPLM_none;
 		return;
 	} else if(res) {
 		rf = TRUE;
@@ -334,6 +335,7 @@ void replace()
 
 	sprintf(buf, "[ %.30s -> %-.30s ] %d %s", s_search, s_repl, chgNo, REPLACED_MSG);
 	system_msg(buf);
+	edbuf[CurrentFileNo].replm = REPLM_none;
 }
 
 SHELL void op_search_paging()
