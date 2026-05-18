@@ -98,7 +98,6 @@
 #define	MENU_QUIT_MSG			(sysinfo.japanesef ? "Q エディタを終了" : "Quit")
 
 #define	OPT_CR_MARK_MSG			(sysinfo.japanesef ? "C CRの表示               " : "CR Display               ")
-#define	OPT_CR_MARK_MSG			(sysinfo.japanesef ? "C CRの表示               " : "CR Display               ")
 #define	OPT_TAB_MARK_MSG		(sysinfo.japanesef ? "T TABの表示              " : "Tab Display              ")
 #define	OPT_EOF_MARK_MSG		(sysinfo.japanesef ? "E EOFの表示              " : "EOF Display              ")
 #define	OPT_NUMBER_MSG			(sysinfo.japanesef ? "L 行番号の表示           " : "Line Numbers             ")
@@ -113,6 +112,8 @@
 #define	OPT_KANJICODE_MSG		(sysinfo.japanesef ? "K 漢字コード             " : "Kanji Code               ")
 #define	OPT_TAB_STOP_MSG		(sysinfo.japanesef ? "P タブストップ数         " : "P Tab Stop               ")
 #define	OPT_AMBIGUOUS_MSG		(sysinfo.japanesef ? "W 曖昧文字幅             " : "W Ambiguous char width   ")
+#define	OPT_WHEEL_MSG			(sysinfo.japanesef ? "H マウスホイール         " : "H Mouse wheel            ")
+#define	OPT_IME_MSG				(sysinfo.japanesef ? "I IME 制御               " : "IME control              ")
 
 #define	FILE_COPY_MSG			(sysinfo.japanesef ? "C コピー" : "Copy")
 #define	FILE_MOVE_MSG			(sysinfo.japanesef ? "M 移動" : "Move")
