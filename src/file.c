@@ -533,8 +533,9 @@ int fileopen(char *filename, int kc, int line, int mode)
 #else
 			edbuf[CurrentFileNo].rm = RM_lf;
 #endif
-			edbuf[CurrentFileNo].cmode = check_cmode_ext(filename);
+			edbuf[CurrentFileNo].cmode = check_file_ext(filename, &sysinfo.sitem[itemCext]);
 			edbuf[CurrentFileNo].tabstop = edbuf[CurrentFileNo].cmode ? sysinfo.cmode_tabstop : sysinfo.tabstop;
+			set_keyword_ext(filename);
 
 			system_msg(NEWFILE_MSG);
 			csr_lenew();
@@ -584,9 +585,10 @@ int fileopen(char *filename, int kc, int line, int mode)
 			edbuf[CurrentFileNo].rm = n / nx > ki.n_lf ? RM_cr : RM_crlf;
 		}
 	}
-	edbuf[CurrentFileNo].cmode = check_cmode_ext(filename);
+	edbuf[CurrentFileNo].cmode = check_file_ext(filename, &sysinfo.sitem[itemCext]);
 	edbuf[CurrentFileNo].tabstop = edbuf[CurrentFileNo].cmode ? sysinfo.cmode_tabstop : sysinfo.tabstop;
 	edbuf[CurrentFileNo].readonly = (access(filename, W_OK) == 0) ? FALSE : TRUE;
+	set_keyword_ext(filename);
 	csr_lenew();
 
 	if(line == -1) {
