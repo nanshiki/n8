@@ -22,6 +22,8 @@
 #include "lineedit.h"
 #include "keyf.h"
 #include "sh.h"
+#include "search.h"
+#include "../lib/regexp.h"
 #include <ctype.h>
 
 #define	SPLIT_HORIZON_MIN	5
@@ -133,11 +135,69 @@ void crt_crmark(int under)
 	term_putch('!');
 }
 
+int check_keyword(const char *p, int pos, int length)
+{
+	if(pos > 0) {
+		if(isalnum(p[pos - 1]) || p[pos - 1] == '_') {
+			return FALSE;
+		}
+	}
+	if(isalnum(p[pos + length]) || p[pos + length] == '_') {
+		return FALSE;
+	}
+	return TRUE;
+}
+
+extern char s_search[MAXEDITLINE + 1];
+int check_word(char *buffer, regm_t *rmp);
+
+void set_keyword(char *p, color_t *ac)
+{
+	keyword_list_t *key_list = edbuf[CurrentFileNo].keyword_list;
+
+	if(key_list != NULL) {
+		while(key_list != NULL) {
+			sitem_t *item = key_list->keyword->sitem[itemKeyword];
+			while(item != NULL) {
+				char *wp = strstr(p, item->str);
+				while(wp != NULL) {
+					int pos = (int)(wp - p);
+					int length = (int)strlen(item->str);
+					if(check_keyword(p, pos, length)) {
+						int no;
+						for(no = 0 ; no < length ; no++) {
+							ac[pos++] = key_list->keyword->color | AC_key;
+						}
+					}
+					wp = strstr(wp + length, item->str);
+				}
+				item = item->next;
+			}
+			key_list = key_list->next;
+		}
+	}
+	if(edbuf[CurrentFileNo].pm && edbuf[CurrentFileNo].replm == REPLM_none && s_search[0] != '\0') {
+		regm_t rm;
+		int x = 0;
+		while(1) {
+			if(regexp_seeknext(p, s_search, x, &rm, sysinfo.searchregf, sysinfo.nocasef) && check_word(p, &rm)) {
+				x = rm.rm_so;
+				while(x < rm.rm_eo) {
+					ac[x++] = sysinfo.c_search | AC_key;
+				}
+			} else {
+				break;
+			}
+		}
+	}
+}
+
+
 void crt_draw_proc(const char *s, crt_draw_t *gp)
 {
 	char buf[MAXEDITLINE + 1];
 	char buf_dsp[MAXEDITLINE + 1], *p;
-	char buf_ac[MAXEDITLINE + 1], *ac;
+	color_t buf_ac[MAXEDITLINE + 1], *ac;
 	int cf, bf;
 	int ln, sx, n, m, len;
 	int x_st, x_ed;
@@ -204,6 +264,7 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 	}
 	term_locate(gp->dline, NumWidth + GetMinCol());
 	if(!block_range(gp->line, &gp->bm, &x_st, &x_ed)) {
+		set_keyword(p, ac);
 		term_color_normal();
 		if(under) {
 			term_color_underline();
@@ -284,6 +345,56 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 
 	++gp->line;
 	++gp->dline;
+}
+
+void set_split_screen_size()
+{
+	int keep = CurrentFileNo;
+
+	split_file_no[splitUpper] = CurrentFileNo;
+	split_file_no[splitLower] = BackFileNo;
+	if(split_mode == splitHorizon) {
+		split_start[splitDataHorizon] = term_sizey() / 2;
+		split_size[splitDataHorizon][splitUpper] = split_start[splitDataHorizon] - 1;
+		split_size[splitDataHorizon][splitLower] = split_start[splitDataHorizon] - 1;
+		split_start[splitDataHorizon] += split_move[splitDataHorizon];
+		split_size[splitDataHorizon][splitUpper] += split_move[splitDataHorizon];
+		split_size[splitDataHorizon][splitLower] -= split_move[splitDataHorizon];
+	} else {
+		split_start[splitDataVertical] = term_sizex() / 2;
+		split_size[splitDataVertical][splitLeft] = split_start[splitDataVertical] - 1;
+		split_size[splitDataVertical][splitRight] = split_start[splitDataVertical] - 1;
+		split_start[splitDataVertical] += split_move[splitDataVertical];
+		split_size[splitDataVertical][splitLeft] += split_move[splitDataVertical];
+		split_size[splitDataVertical][splitRight] -= split_move[splitDataVertical];
+		system_drp[systemVertical]->x = split_start[splitDataVertical] - 1;
+	}
+	CurrentFileNo = BackFileNo;
+	if(split_mode == splitHorizon) {
+		if(csrse.cy > term_sizey() / 2 - 1) {
+			csrse.cy = term_sizey() / 4;
+		}
+	}
+	csr_setdy(GetRow());
+	CurrentFileNo = keep;
+	if(split_mode == splitHorizon) {
+		if(csrse.cy > term_sizey() / 2 - 1) {
+			csrse.cy = term_sizey() / 4;
+		}
+	}
+}
+
+void crt_reinit()
+{
+	if(CurrentFileNo >= 0 && CurrentFileNo <= MAX_edbuf) {
+		if(csrse.cy > term_sizey() - 1) {
+			csrse.cy = term_sizey() / 2;
+		}
+	}
+	if(split_mode != splitNone) {
+		set_split_screen_size();
+		set_split_screen();
+	}
 }
 
 void crt_draw_file()
@@ -808,28 +919,7 @@ SHELL void op_file_split()
 			split_file_no[splitLeft] = -1;
 			split_file_no[splitRight] = -1;
 		} else {
-			int keep = CurrentFileNo;
-			split_file_no[splitUpper] = CurrentFileNo;
-			split_file_no[splitLower] = BackFileNo;
-			if(split_mode == splitHorizon) {
-				split_start[splitDataHorizon] = term_sizey() / 2;
-				split_size[splitDataHorizon][splitUpper] = split_start[splitDataHorizon] - 1;
-				split_size[splitDataHorizon][splitLower] = split_start[splitDataHorizon] - 1;
-				split_start[splitDataHorizon] += split_move[splitDataHorizon];
-				split_size[splitDataHorizon][splitUpper] += split_move[splitDataHorizon];
-				split_size[splitDataHorizon][splitLower] -= split_move[splitDataHorizon];
-			} else {
-				split_start[splitDataVertical] = term_sizex() / 2;
-				split_size[splitDataVertical][splitLeft] = split_start[splitDataVertical] - 1;
-				split_size[splitDataVertical][splitRight] = split_start[splitDataVertical] - 1;
-				split_start[splitDataVertical] += split_move[splitDataVertical];
-				split_size[splitDataVertical][splitLeft] += split_move[splitDataVertical];
-				split_size[splitDataVertical][splitRight] -= split_move[splitDataVertical];
-				system_drp[systemVertical]->x = split_start[splitDataVertical] - 1;
-			}
-			CurrentFileNo = BackFileNo;
-			csr_setdy(GetRow());
-			CurrentFileNo = keep;
+			set_split_screen_size();
 		}
 		csr_lenew();
 		csr_setdy(GetRow());
