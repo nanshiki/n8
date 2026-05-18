@@ -12,6 +12,7 @@ RPMDIR = ../package/rpm_work$(SYSCONFDIR)
 
 INSS=   n8rc n8rc.tk \
         key.vz key.tk key.eff key.system \
+        n8keyword \
         term.xterm term.xterm-256color
 
 all:
