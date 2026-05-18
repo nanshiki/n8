@@ -20,7 +20,7 @@
 #endif
 #include <ctype.h>
 
-#define	issjis1(c)	(((unsigned char)(c) >= 0x81 &&(unsigned char)(c) <= 0x9f) || ((unsigned char)(c) >= 0xe0 &&(unsigned char)(c) <= 0xfc))
+#define	issjis1(c)	(((unsigned char)(c) >= 0x81 &&(unsigned char)(c) <= 0x9f) || ((unsigned char)(c) >= 0xe0 && (unsigned char)(c) <= 0xfc))
 #define	issjis2(c)	((unsigned char)(c) >= 0x40 &&(unsigned char)(c) <= 0xfc)
 #define	iskana(c)	((unsigned char)(c) >= 0xa0 &&(unsigned char)(c) <= 0xdf)
 #define	iseuc(c)	((unsigned char)(c) >= 0xa1 &&(unsigned char)(c) <= 0xfe)
