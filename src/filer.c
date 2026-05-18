@@ -147,7 +147,15 @@ void fw_init(fw_t *fwp, const char *s, int a)
 		strcpy(fwp->path, s);
 	} else {
 		getcwd(path, LN_path);
+#ifdef _WIN32
+		if(strlen(path) == 3 && path[1] == ':') {
+			strcpy(fwp->path, path);
+		} else {
+			sprintf(fwp->path, "%.*s/", LN_path - 1, path);
+		}
+#else
 		sprintf(fwp->path, "%.*s/", LN_path - 1, path);
+#endif
 	}
 
 	fwp->flist.fitem = NULL;
@@ -182,6 +190,14 @@ void eff_reinit()
 	fw[0].menu.drp->sizex = sizex;
 	fw[1].menu.drp->sizex = sizex;
 	fw[1].menu.drp->x = fw[0].menu.drp->sizex;
+	if(eff.open) {
+		fw_make(&fw[0]);
+		fw_make(&fw[1]);
+		if(eff.wn == 1) {
+			fw[1].menu.df = FALSE;
+			dsp_regrm(fw[1].menu.drp);
+		}
+	}
 }
 
 void eff_set_sort(int sort)
@@ -1291,15 +1307,15 @@ void fw_mask()
 		menu_itemfin(&menu);
 		if((str = get_string_item(itemMask, res)) != NULL) {
 			int len = (int)strlen(str);
-			clear_string_item(itemUse);
+			clear_string_item(&sysinfo.sitem[itemUse]);
 			if(len >= 2) {
 				str += 2;
-				set_ext_item(itemUse, str);
+				set_ext_item(&sysinfo.sitem[itemUse], str);
 				if(strcmp(str, "*.*")) {
 					strcpy(fw_c.mask, str);
 				} else {
 					fw_c.mask[0] = '\0';
-					clear_string_item(itemUse);
+					clear_string_item(&sysinfo.sitem[itemUse]);
 				}
 			}
 			set_path_title();
@@ -1323,12 +1339,12 @@ void fw_change_dir()
 						fwc_chdir(buf, TRUE);
 					}
 				} else {
-					set_ext_item(itemUse, buf);
+					set_ext_item(&sysinfo.sitem[itemUse], buf);
 					strcpy(fw_c.mask, buf);
 				}
 			} else {
 				fw_c.mask[0] = '\0';
-				clear_string_item(itemUse);
+				clear_string_item(&sysinfo.sitem[itemUse]);
 			}
 			set_path_title();
 			fw_make(&fw[eff.wa]);
@@ -1464,19 +1480,13 @@ int eff_filer(char *fn)
 			fw_mask();
 			continue;
 		case KF_EffMaskClear:
-			clear_string_item(itemUse);
+			clear_string_item(&sysinfo.sitem[itemUse]);
 			fw_c.mask[0] = '\0';
 			set_path_title();
 			fw_make(&fw[eff.wa]);
 			continue;
 		case KF_EffRedraw:
 			op_misc_redraw();
-			fw_make(&fw[0]);
-			fw_make(&fw[1]);
-			if(eff.wn == 1) {
-				fw[1].menu.df = FALSE;
-				dsp_regrm(fw[1].menu.drp);
-			}
 			continue;
 		}
 		break;
