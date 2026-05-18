@@ -290,6 +290,9 @@ int rmdir_win(const char *path)
 
 void change_dir_char(char *dir)
 {
+	if(*(dir + 1) == ':') {
+		*dir = toupper(*dir);
+	}
 	while(*dir != '\0') {
 		if(*dir == '\\') {
 			*dir = '/';
