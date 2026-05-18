@@ -16,7 +16,7 @@ Windows版の場合Windows Terminalを使用してください。
 ## 画面
 ![検索](https://imgur.com/ISlogce.png)
 ![分割](https://imgur.com/91fN89f.png)
-![Windows版](https://imgur.com/961ZTbd.png)
+![Windows版](https://imgur.com/6qcafkn.png)
 こちらの[紹介ページ](https://www.nanshiki.co.jp/software/n8.html)にも画面があります。  
 
 ## neからの変更点
@@ -34,6 +34,9 @@ Windows版の場合Windows Terminalを使用してください。
 - ファイラーの操作体系、ファイルクローズやエディタ終了時の動作を VZ Editor と同等になるよう修正しました。   
 - メニュー項目や色、ファイラーの色等を DOS/V 版の VZ Editor に近くなるよう修正しました。   
 - 英語モードでのメッセージを追加しました。その他いろいろとメッセージ表記を変更しています。  
+- ターミナルの画面サイズ変更時に自動で再描画するように修正しました。  
+- 拡張子に対応した指定キーワードの色表示機能を追加しました。  
+- 挿入モードと上書モードとでカーソル形状を切替可能としました。  
 
 修正履歴は[ChangeLog.txt](https://github.com/nanshiki/n8/blob/main/ChangeLog.txt)を参照してください。  
 
