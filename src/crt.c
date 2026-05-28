@@ -159,17 +159,32 @@ void set_keyword(char *p, color_t *ac)
 		while(key_list != NULL) {
 			sitem_t *item = key_list->keyword->sitem[itemKeyword];
 			while(item != NULL) {
-				char *wp = strstr(p, item->str);
-				while(wp != NULL) {
-					int pos = (int)(wp - p);
-					int length = (int)strlen(item->str);
-					if(check_keyword(p, pos, length)) {
-						int no;
-						for(no = 0 ; no < length ; no++) {
-							ac[pos++] = key_list->keyword->color | AC_key;
+				if(key_list->keyword->reg_flag) {
+					regm_t rm;
+					int x = 0;
+					while(1) {
+						if(regexp_seeknext(p, item->str, x, &rm, TRUE, FALSE)) {
+							x = rm.rm_so;
+							while(x < rm.rm_eo) {
+								ac[x++] = key_list->keyword->color | AC_key;
+							}
+						} else {
+							break;
 						}
 					}
-					wp = strstr(wp + length, item->str);
+				} else {
+					char *wp = strstr(p, item->str);
+					while(wp != NULL) {
+						int pos = (int)(wp - p);
+						int length = (int)strlen(item->str);
+						if(check_keyword(p, pos, length)) {
+							int no;
+							for(no = 0 ; no < length ; no++) {
+								ac[pos++] = key_list->keyword->color | AC_key;
+							}
+						}
+						wp = strstr(wp + length, item->str);
+					}
 				}
 				item = item->next;
 			}
@@ -181,6 +196,9 @@ void set_keyword(char *p, color_t *ac)
 		int x = 0;
 		while(1) {
 			if(regexp_seeknext(p, s_search, x, &rm, sysinfo.searchregf, sysinfo.nocasef) && check_word(p, &rm)) {
+				if(rm.rm_so == rm.rm_eo) {
+					break;
+				}
 				x = rm.rm_so;
 				while(x < rm.rm_eo) {
 					ac[x++] = sysinfo.c_search | AC_key;

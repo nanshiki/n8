@@ -25,9 +25,12 @@
 #ifdef _WIN32
 #include <windows.h>
 #include "../lib/regexp.h"
-int regcomp(regex_t *, const char *, int);
-int regexec(regex_t *,const char *, size_t, regm_t *, int);
-void regfree(regex_t *);
+int regcomp_win(regex_t *, const char *, int);
+int regexec_win(regex_t *,const char *, size_t, regm_t *, int);
+void regfree_win(regex_t *);
+#define	regcomp	regcomp_win
+#define	regexec	regexec_win
+#define	regfree	regfree_win
 #else
 #include <regex.h>
 #endif
@@ -667,7 +670,7 @@ void set_keyword_item(sitem_t **item, char *p)
 	}
 }
 
-void keyword_add(char *ext, char *word, color_t color)
+void keyword_add(char *ext, char *word, color_t color, int reg_flag)
 {
 	keyword_t *key, *last;
 
@@ -675,8 +678,13 @@ void keyword_add(char *ext, char *word, color_t color)
 		key->sitem[itemKeyExt] = NULL;
 		set_ext_item(&key->sitem[itemKeyExt], ext);
 		key->sitem[itemKeyword] = NULL;
-		set_keyword_item(&key->sitem[itemKeyword], word);
+		if(reg_flag) {
+			add_string_item(&key->sitem[itemKeyword], word);
+		} else {
+			set_keyword_item(&key->sitem[itemKeyword], word);
+		}
 		key->color = color;
+		key->reg_flag = reg_flag;
 		key->next = NULL;
 		if(sysinfo.keyword == NULL) {
 			sysinfo.keyword = key;
@@ -695,6 +703,7 @@ void sysinfo_keyword()
 	char key[MAXLINESTR];
 	char *ext, *word, *str;
 	color_t color;
+	int reg_flag;
 	int no;
 
 	no = 1;
@@ -715,7 +724,9 @@ void sysinfo_keyword()
 			break;
 		}
 		color = term_cftocol(str);
-		keyword_add(ext, word, color);
+		sprintf(key, "keyreg%d", no);
+		reg_flag = hash_istrue(sysinfo.vp_def, key);
+		keyword_add(ext, word, color, reg_flag);
 		no++;
 	}
 }
@@ -1227,6 +1238,7 @@ void config_read(char *path)
 	char val_buf[MAX_nbuf][MAXLINESTR + 1];
 	int name_num;
 	int val_num;
+	int esc_flag;
 
 	if(strchr(path, '/') != NULL) {
 		fp = fopen(path, "r");
@@ -1271,7 +1283,16 @@ void config_read(char *path)
 			if(isend(c)) {
 				break;
 			}
-
+			esc_flag = FALSE;
+			if(q_chr == '"') {
+				if(c == '\\') {
+					c = fgetc(fp);
+					if(isend(c)) {
+						break;
+					}
+					esc_flag = TRUE;
+				}
+			}
 			if(!ex_flag && !q_chr && c == '#') {
 				mode = 9;
 			}
@@ -1320,11 +1341,11 @@ void config_read(char *path)
 				q_chr = ')';
 				continue;
 			}
-			if(!ex_flag && c == '"') {
+			if(!ex_flag && c == '"' && !esc_flag) {
 				q_chr = (q_chr == '"') ? '\0' : '"';
 				continue;
 			}
-			if(!ex_flag && c == '\'') {
+			if(!ex_flag && c == '\'' && q_chr != '"') {
 				q_chr = (q_chr == '\'') ? '\0' : '\'';
 				continue;
 			}
@@ -1352,7 +1373,7 @@ void config_read(char *path)
 				}
 			}
 
-			if((!q_chr || q_chr == '"') && c == '$') {
+			if((!q_chr || q_chr == '"') && c == '$' && !esc_flag) {
 				char *q;
 				char dval_buf[MAXLINESTR + 1];
 				char c_chr;
