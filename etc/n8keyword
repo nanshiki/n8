@@ -6,3 +6,27 @@ col_key1 = B
 KeyExt2 = ".h .c .cpp"
 Keyword2 = "#include #if #else #elif #ifdef #ifndef #endif #define #undef #pragma #error"
 col_key2 = 6
+
+# C 言語文字列
+KeyExt3 = ".h .c .cpp"
+Keyword3 = "\"([^\"]*)\""
+KeyReg3 = on
+col_key3 = 1
+
+KeyExt4 = ".h .c .cpp"
+Keyword4 = "\'(\\\\.|[^\'\\\\])+\'"
+KeyReg4 = on
+col_key4 = 1
+
+# C++ コメント
+KeyExt5 = ".h .c .cpp"
+Keyword5 = '//.*$'
+KeyReg5 = on
+col_key5 = 2
+
+# HTML タグ
+KeyExt6 = ".html .htm"
+Keyword6 = '<\/?[!a-zA-Z][a-zA-Z0-9]*[^<>]*>'
+KeyReg6 = on
+col_key6 = 6
+
