@@ -16,7 +16,7 @@ Windows版の場合Windows Terminalを使用してください。
 ## 画面
 ![検索](https://imgur.com/ISlogce.png)
 ![分割](https://imgur.com/91fN89f.png)
-![Windows版](https://imgur.com/6qcafkn.png)
+![Windows版](https://imgur.com/JPyb0G8.png)
 こちらの[紹介ページ](https://www.nanshiki.co.jp/software/n8.html)にも画面があります。  
 
 ## neからの変更点
