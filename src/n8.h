@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.1.4"
+#define	VER "4.1.5"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -169,6 +169,7 @@ enum {
 typedef struct _keyword
 {
 	color_t color;
+	int reg_flag;
 	sitem_t *sitem[itemKeyMax];
 	struct _keyword *next;
 } keyword_t;
