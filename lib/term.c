@@ -925,9 +925,8 @@ void term_change_screen()
 int term_kbhit(unsigned long usec)
 {
 #ifdef _WIN32
-	INPUT_RECORD in;
 	DWORD count;
-	if(PeekConsoleInput(term.handle_in, &in, 1, &count)) {
+	if(GetNumberOfConsoleInputEvents(term.handle_in, &count)) {
 		if(count > 0) {
 			return TRUE;
 		}
