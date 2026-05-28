@@ -86,6 +86,32 @@ int get_regexp_enable()
 {
 	return regexp_flag;
 }
+
+int regcomp_win(regex_t *re, const char *str, int pattern)
+{
+	if(regexp_flag) {
+		return regcomp(re, str, pattern);
+	}
+	return FALSE;
+}
+
+typedef void (*f_regfree)(regex_t *);
+
+int regexec_win(regex_t *re, const char *str, size_t nm, regm_t *rm, int pattern)
+{
+	if(regexp_flag) {
+		return regexec(re, str, nm, rm, pattern);
+	}
+	return FALSE;
+}
+
+void regfree_win(regex_t *re)
+{
+	if(regexp_flag) {
+		regfree(re);
+	}
+}
+
 #endif
 
 /* search */
