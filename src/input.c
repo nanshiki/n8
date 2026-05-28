@@ -81,7 +81,7 @@ void InputAndCrt(unsigned long key)
 			if(csrle.lx > 0) {
 				if(csrle.buf[csrle.lx - 1] == '\t') {
 					csrle.lx--;
-					csrle.buf[csrle.lx] = '\0';
+					se_delete(1, FALSE);
 				}
 			}
 		}
