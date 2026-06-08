@@ -13,6 +13,7 @@ void DeleteList(EditLine *li);
 EditLine *GetList(long o_number);
 size_t lists_size(long n_st, long n_en);
 void lists_proc(void func(const char *, void *), void *gp, long n_st, long n_en);
+void lists_proc_draw(void func(const char *, void *, int), void *gp, long n_st, long n_en);
 void lists_add(void *func(char *, void *), void *gp);
 void lists_delete(int n_st, int n_ed);
 long history_get_last_count(int no);

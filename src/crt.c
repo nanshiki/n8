@@ -29,6 +29,11 @@
 #define	SPLIT_HORIZON_MIN	5
 #define	SPLIT_VERTICAL_MIN	35
 
+#define	COMMENT_START	1
+#define	COMMENT_MIDDLE	2
+#define	COMMENT_END		4
+#define	COMMENT_CPP		8
+
 enum {
 	systemGuide1,
 	systemGuide2,
@@ -148,6 +153,74 @@ int check_keyword(const char *p, int pos, int length)
 	return TRUE;
 }
 
+void set_comment_flag()
+{
+	if(edbuf[CurrentFileNo].cmode && sysinfo.c_ccomment != (color_t)-1) {
+		EditLine *ed;
+		char *sp;
+		int comment = 0;
+
+		ed = GetTop();
+		if(ed != NULL && ed->buffer == NULL) {
+			ed = ed->next;
+		}
+		while(ed != NULL && ed->buffer != NULL) {
+			ed->flag = comment;
+			sp = ed->buffer;
+			while((sp = strchr(sp, '/')) != NULL) {
+				if(*(sp + 1) == '/') {
+					ed->flag |= COMMENT_CPP;
+					sp++;
+				} else if(*(sp + 1) == '*') {
+					if(!(ed->flag & COMMENT_CPP)) {
+						ed->flag |= COMMENT_START;
+						comment = COMMENT_MIDDLE;
+					}
+					sp++;
+				} else if(sp > ed->buffer && *(sp - 1) == '*') {
+					if(!(ed->flag & COMMENT_CPP)) {
+						ed->flag |= COMMENT_END;
+						if(comment != 0) {
+							comment = 0;
+						}
+					}
+				}
+				sp++;
+			}
+			ed = ed->next;
+		}
+	}
+}
+
+void set_comment(char *p, color_t *ac, int flag)
+{
+	int enable;
+	int quot = FALSE;
+
+	enable = (flag & COMMENT_MIDDLE) ? TRUE : FALSE;
+	while(*p != 0) {
+		if(*p == '"' && !(flag & COMMENT_MIDDLE)) {
+			quot = !quot;
+		} else if(!quot) {
+			if(*p == '/') {
+				if(*(p + 1) == '*') {
+					enable = TRUE;
+				} else if(*(p + 1) == '/') {
+					enable = COMMENT_CPP;
+				}
+			}
+		}
+		if(enable) {
+			*ac = sysinfo.c_ccomment | AC_key;
+		}
+		ac++;
+		p++;
+		if(!quot && *(p - 2) == '*' && *(p - 1) == '/' && enable != COMMENT_CPP) {
+			enable = FALSE;
+		}
+	}
+}
+
 extern char s_search[MAXEDITLINE + 1];
 int check_word(char *buffer, regm_t *rmp);
 
@@ -211,7 +284,7 @@ void set_keyword(char *p, color_t *ac)
 }
 
 
-void crt_draw_proc(const char *s, crt_draw_t *gp)
+void crt_draw_proc(const char *s, crt_draw_t *gp, int flag)
 {
 	char buf[MAXEDITLINE + 1];
 	char buf_dsp[MAXEDITLINE + 1], *p;
@@ -283,6 +356,9 @@ void crt_draw_proc(const char *s, crt_draw_t *gp)
 	term_locate(gp->dline, NumWidth + GetMinCol());
 	if(!block_range(gp->line, &gp->bm, &x_st, &x_ed)) {
 		set_keyword(p, ac);
+		if(edbuf[CurrentFileNo].cmode && flag != 0 && sysinfo.c_ccomment != (color_t)-1) {
+			set_comment(p, ac, flag);
+		}
 		term_color_normal();
 		if(under) {
 			term_color_underline();
@@ -438,7 +514,7 @@ void crt_draw_file()
 		cd.dline++;
 	}
 	cd.line = csr_getsy() + 1;
-	lists_proc((void (*)(const char *, void *))crt_draw_proc, &cd, cd.line, csr_getsy() + GetRowWidth());
+	lists_proc_draw((void (*)(const char *, void *, int))crt_draw_proc, &cd, cd.line, csr_getsy() + GetRowWidth());
 	csrle.l_sx = csrle.sx;
 	csrse.l_sy = csr_getsy();
 	csrse.l_cy = csrse.cy;

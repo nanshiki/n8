@@ -1,4 +1,8 @@
-# C 言語キーワード設定
+# C/C++ コメント色指定 CExt で指定された拡張子のファイルで有効
+# col_ccoment= で色表示なし
+col_ccomment = 2
+
+# C/C++ キーワード設定
 KeyExt1 = ".h .c .cpp"
 Keyword1 = "if else for while do switch case break continue return static extern default goto delete new try catch"
 col_key1 = B
@@ -7,7 +11,7 @@ KeyExt2 = ".h .c .cpp"
 Keyword2 = "#include #if #else #elif #ifdef #ifndef #endif #define #undef #pragma #error"
 col_key2 = 6
 
-# C 言語文字列
+# C/C++ 文字列
 KeyExt3 = ".h .c .cpp"
 Keyword3 = "\"([^\"]*)\""
 KeyReg3 = on
@@ -18,15 +22,9 @@ Keyword4 = "\'(\\\\.|[^\'\\\\])+\'"
 KeyReg4 = on
 col_key4 = 1
 
-# C++ コメント
-KeyExt5 = ".h .c .cpp"
-Keyword5 = '//.*$'
-KeyReg5 = on
-col_key5 = 2
-
 # HTML タグ
-KeyExt6 = ".html .htm"
-Keyword6 = '<\/?[!a-zA-Z][a-zA-Z0-9]*[^<>]*>'
-KeyReg6 = on
-col_key6 = 6
+KeyExt5 = ".html .htm"
+Keyword5 = '<\/?[!a-zA-Z][a-zA-Z0-9]*[^<>]*>'
+KeyReg5 = on
+col_key5 = 6
 

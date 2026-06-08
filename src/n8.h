@@ -14,7 +14,7 @@
 --------------------------------------------------------------------*/
 #include "config.h"
 
-#define	VER "4.1.5"
+#define	VER "4.1.6"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -104,6 +104,7 @@ typedef struct _ed
 
 	size_t size;		/* 確保してあるバッファのサイズ */
 	size_t bytes;		/* バッファ上の実際の文字サイズ*/
+	int flag;
 } EditLine;
 
 typedef struct
@@ -208,6 +209,7 @@ typedef struct
 	color_t c_statusbar;
 	color_t c_frame;
 	color_t c_zenspace;
+	color_t c_ccomment;
 
 	int crmarkf;	/* crmark処理を行うかどうか */
 	int tabmarkf;

@@ -117,6 +117,7 @@ EditLine *MakeLine(const char *buffer)
 	n = strjcpy(pli->buffer, buffer, MAXEDITLINE);
 	pli->size = n;
 	pli->bytes = n;
+	pli->flag = 0;
 	return pli;
 }
 
@@ -268,6 +269,28 @@ void lists_proc(void func(const char *, void *), void *gp, long n_st, long n_en)
 			sprintf(buf, "%s\n", ed->buffer);
 		}
 		func(buf, gp);
+		ed = ed->next;
+	}
+}
+
+void lists_proc_draw(void func(const char *, void *, int), void *gp, long n_st, long n_en)
+{
+	long i;
+	EditLine *ed;
+	char buf[MAXEDITLINE + 1];
+
+	ed = GetList(n_st);
+	for(i = n_st ; i <= n_en ; ++i) {
+		if(ed == NULL || ed->buffer == NULL || i > GetLastNumber()) {
+			func(NULL, gp, 0);
+			continue;
+		}
+		if(ed->next == NULL) {
+			strcpy(buf, ed->buffer);
+		} else {
+			sprintf(buf, "%s\n", ed->buffer);
+		}
+		func(buf, gp, ed->flag);
 		ed = ed->next;
 	}
 }

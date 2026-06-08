@@ -69,6 +69,7 @@ void csr_leupdate()
 	if(strcmp(csrle.buf, ed->buffer) != 0) {
 		Realloc(ed, csrle.buf);
 		SetFileChangeFlag();
+		set_comment_flag();
 	}
 }
 

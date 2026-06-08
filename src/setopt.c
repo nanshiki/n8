@@ -877,7 +877,15 @@ void sysinfo_optset()
 	sysinfo.c_eff_dirn  = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_dirn"));
 	sysinfo.c_eff_normc = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normc"));
 	sysinfo.c_eff_normn = term_cftocol(hash_get(sysinfo.vp_def, "col_eff_normn"));
-
+	sysinfo.c_ccomment = -1;
+	p = hash_get(sysinfo.vp_def, "col_ccomment");
+	if(p != NULL) {
+		if(*p == '\0') {
+			sysinfo.c_ccomment = -1;
+		} else {
+			sysinfo.c_ccomment = term_cftocol(p);
+		}
+	}
 	set_ext_item(&sysinfo.sitem[itemHide], hash_get(sysinfo.vp_def, "HideExt"));
 	set_ext_item(&sysinfo.sitem[itemCext], hash_get(sysinfo.vp_def, "CExt"));
 #ifdef _WIN32
@@ -977,6 +985,7 @@ void opt_default()
 	hash_set(sysinfo.vp_def, "col_eff_dirn", "6");
 	hash_set(sysinfo.vp_def, "col_eff_normc", "1R");
 	hash_set(sysinfo.vp_def, "col_eff_normn", "");
+	hash_set(sysinfo.vp_def, "col_ccomment", "2");
 }
 
 void search_option_set_proc(int a, mitem_t *mip, void *vp)

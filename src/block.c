@@ -18,6 +18,7 @@
 #include "cursor.h"
 #include "keyf.h"
 #include "file.h"
+#include "crt.h"
 #include "sh.h"
 #ifdef _WIN32
 #include <windows.h>
@@ -202,7 +203,7 @@ int bstack_copy()
 
 void block_cut()
 {
-	EditLine *ed,*ed_next;
+	EditLine *ed, *ed_next;
 	int x_st, x_ed;
 	char buf[MAXEDITLINE + 1];
 
@@ -296,6 +297,8 @@ SHELL void op_block_cut()
 		return;
 	}
 	block_cut();
+
+	set_comment_flag();
 }
 
 const char *str_paste(char *s, const char *p)
@@ -374,6 +377,8 @@ void bstack_paste()
 			y--;
 		}
 	}
+
+	set_comment_flag();
 }
 
 SHELL void op_block_paste()

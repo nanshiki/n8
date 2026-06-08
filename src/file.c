@@ -590,6 +590,7 @@ int fileopen(char *filename, int kc, int line, int mode)
 	edbuf[CurrentFileNo].readonly = (access(filename, W_OK) == 0) ? FALSE : TRUE;
 	set_keyword_ext(filename);
 	csr_lenew();
+	set_comment_flag();
 
 	if(line == -1) {
 		line = history_add_path(filename, historyOpen);
