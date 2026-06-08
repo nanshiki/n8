@@ -590,6 +590,11 @@ $ は \$ と表記します。
   col_eff_normn []
     ファイラーの通常の文字の色です。
 
+  col_ccomment [2]
+    C/C++ のコメントの色です。
+    CExt で指定された拡張子のファイルで有効になります。
+    指定なしの場合(col_ccomment=)は色表示は行いません。
+
 ・キーアサイン
   [F01]～[F12]はファンクションキー、[UP][DOWN][LEFT][RIGHT]はカーソルキー、[BS]
 は Backspace キー、[DEL]は Delete キー、[INS]は Insert キー、[PGUP][PGDN]はそれ
